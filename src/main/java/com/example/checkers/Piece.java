@@ -38,6 +38,10 @@ public class Piece extends Circle {
     protected static boolean suggestionMode = false;  // if in an eating chain, no other tiles can be clicked
     protected PieceMode pieceMode;  // for animation - do different thing according to type of piece
 
+    // PROJECT PATH (FOR IMAGES IMPORTED)
+    private static final String PROJECT_PATH = System.getProperty("user.dir");
+
+    // EFFECTS FOR GUI
     protected static final double PIECE_RADIUS = Tile.getTileSize() / 2.75;
     protected static final int SCALE_DURATION = 150;
     protected static final double INCREASE_SIZE = 1.25;  // 125% scale
@@ -46,18 +50,18 @@ public class Piece extends Circle {
     protected static final double SHADOW_RADIUS = 10.0;
     protected static final double TRANSITION_DURATION = 0.5;
     protected static final DropShadow DROP_SHADOW = new DropShadow(Piece.SHADOW_RADIUS, Color.BLACK);
-    protected static final ImagePattern DARK_PIECE = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\dark.png"));
-    protected static final ImagePattern DARK_PIECE_DARKER = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\dark-darker.png"));
-    protected static final ImagePattern LIGHT_PIECE = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\light.png"));
-    protected static final ImagePattern LIGHT_PIECE_DARKER = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\light-darker.png"));
-    protected static final ImagePattern LIGHT_MARKED = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\marked-light.png"));
-    protected static final ImagePattern DARK_MARKED = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\marked-dark.png"));
-    protected static final ImagePattern LIGHT_MARKED_DARKER= new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\marked-light-darker.png"));
-    protected static final ImagePattern DARK_MARKED_DARKER = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\marked-dark-darker.png"));
-    private static final ImagePattern DARK_QUEEN = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\dark-QUEEN.png"));
-    private static final ImagePattern LIGHT_QUEEN = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\light-QUEEN.png"));
-    private static final ImagePattern DARK_QUEEN_DARKER = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\dark-QUEEN-darker.png"));
-    private static final ImagePattern LIGHT_QUEEN_DARKER = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\light-QUEEN-darker.png"));
+    protected static final ImagePattern DARK_PIECE = new ImagePattern(new Image(PROJECT_PATH + "\\dark.png"));
+    protected static final ImagePattern DARK_PIECE_DARKER = new ImagePattern(new Image(PROJECT_PATH + "\\dark-darker.png"));
+    protected static final ImagePattern LIGHT_PIECE = new ImagePattern(new Image(PROJECT_PATH + "\\light.png"));
+    protected static final ImagePattern LIGHT_PIECE_DARKER = new ImagePattern(new Image(PROJECT_PATH + "\\light-darker.png"));
+    protected static final ImagePattern LIGHT_MARKED = new ImagePattern(new Image(PROJECT_PATH + "\\marked-light.png"));
+    protected static final ImagePattern DARK_MARKED = new ImagePattern(new Image(PROJECT_PATH + "\\marked-dark.png"));
+    protected static final ImagePattern LIGHT_MARKED_DARKER= new ImagePattern(new Image(PROJECT_PATH + "\\marked-light-darker.png"));
+    protected static final ImagePattern DARK_MARKED_DARKER = new ImagePattern(new Image(PROJECT_PATH + "\\marked-dark-darker.png"));
+    private static final ImagePattern DARK_QUEEN = new ImagePattern(new Image(PROJECT_PATH + "\\dark-QUEEN.png"));
+    private static final ImagePattern LIGHT_QUEEN = new ImagePattern(new Image(PROJECT_PATH + "\\light-QUEEN.png"));
+    private static final ImagePattern DARK_QUEEN_DARKER = new ImagePattern(new Image(PROJECT_PATH + "\\dark-QUEEN-darker.png"));
+    private static final ImagePattern LIGHT_QUEEN_DARKER = new ImagePattern(new Image(PROJECT_PATH + "\\light-QUEEN-darker.png"));
 
 
     public Piece(short x, short y, boolean dark, History history, IPresenter presenter, VisualPlayer visualPlayer)
