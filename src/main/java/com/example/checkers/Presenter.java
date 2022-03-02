@@ -101,7 +101,8 @@ public class Presenter implements IPresenter{
     {
         if (chain.isLeaf())
         {
-            long newQueenPosition = this.model.checkQueen(this.model.getCurrentTurn(), chain.getInfo());
+            // newQueenPosition - 0 if already a queen or not a queen, the position otherwise
+            long newQueenPosition = (Model.checkIfQueen(this.model.getCurrentTurn(), chain.getInfo())) ? 0 : this.model.checkQueen(this.model.getCurrentTurn(), chain.getInfo());
             if (newQueenPosition != 0) {
                 this.model.moveFromPieceToQueen(this.model.getCurrentTurn(), newQueenPosition);
                 this.gameView.makeQueen(Position.logicalNumberToPosition(newQueenPosition));

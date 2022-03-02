@@ -16,9 +16,6 @@ public abstract class QueenPiece extends Piece{
     private static final Color LIGHT_QUEEN = Color.web("0xC3A3B1");
     private static final Color DARK_QUEEN = Color.web("0x685573");
 
-    public QueenPiece(boolean dark, History history, Presenter presenter, VisualPlayer visualPlayer) {
-        super(dark, history, presenter, visualPlayer);
-    }
 
     public QueenPiece(short x, short y, boolean dark, History history, Presenter presenter, VisualPlayer visualPlayer) {
         super(x, y, dark, history, presenter, visualPlayer);

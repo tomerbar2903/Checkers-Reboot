@@ -47,29 +47,7 @@ public class Piece extends Circle {
     protected static final Color DARK_PIECE = Color.web("0x7d6e6a");
     protected static final Color LIGHT_PIECE = Color.web("0xEAD3BF");
 
-    public Piece(boolean dark, History history, Presenter presenter, VisualPlayer visualPlayer)
-    {
-        super();
-        this.dark = dark;
-        this.presenter = presenter;
-        this.logicalPosition = new Position();
-        this.owner = visualPlayer;
-        if (dark)
-        {
-            this.color = Piece.DARK_PIECE;
-        }
-        else
-        {
-            this.color = Piece.LIGHT_PIECE;
-        }
-        this.setRadius(Piece.PIECE_RADIUS);
-        this.setCenterX(0);
-        this.setCenterY(0);
-        this.setFill(this.color);
-        this.setEffect(this.DROP_SHADOW);
-        this.history = history;
-    }
-
+    
     public Piece(short x, short y, boolean dark, History history, IPresenter presenter, VisualPlayer visualPlayer)
     {
         super();
