@@ -20,6 +20,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.paint.ImagePattern;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.StrokeType;
@@ -29,31 +30,42 @@ import javafx.util.Duration;
 public class Piece extends Circle {
 
     protected Position logicalPosition;
-    protected Color color;
+    protected ImagePattern color;
     protected History history;  // holds the piece of the last piece to change
     protected IPresenter presenter;
     protected boolean dark;  // if the piece is dark or light
     protected VisualPlayer owner;  // the owner of the piece
     protected static boolean suggestionMode = false;  // if in an eating chain, no other tiles can be clicked
+    protected PieceMode pieceMode;  // for animation - do different thing according to type of piece
 
-    protected static final double PIECE_RADIUS = Tile.getTileSize() / 3;
+    protected static final double PIECE_RADIUS = Tile.getTileSize() / 2.75;
     protected static final int SCALE_DURATION = 150;
     protected static final double INCREASE_SIZE = 1.25;  // 125% scale
     protected static final double DECREASE_SIZE = 1;  // back to normal
     protected static final double DISAPPEAR = 0;  // disappears from view
     protected static final double SHADOW_RADIUS = 10.0;
     protected static final double TRANSITION_DURATION = 0.5;
-    protected final DropShadow DROP_SHADOW = new DropShadow(Piece.SHADOW_RADIUS, Color.BLACK);
-    protected static final Color DARK_PIECE = Color.web("0x7d6e6a");
-    protected static final Color LIGHT_PIECE = Color.web("0xEAD3BF");
+    protected static final DropShadow DROP_SHADOW = new DropShadow(Piece.SHADOW_RADIUS, Color.BLACK);
+    protected static final ImagePattern DARK_PIECE = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\dark.png"));
+    protected static final ImagePattern DARK_PIECE_DARKER = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\dark-darker.png"));
+    protected static final ImagePattern LIGHT_PIECE = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\light.png"));
+    protected static final ImagePattern LIGHT_PIECE_DARKER = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\light-darker.png"));
+    protected static final ImagePattern LIGHT_MARKED = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\marked-light.png"));
+    protected static final ImagePattern DARK_MARKED = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\marked-dark.png"));
+    protected static final ImagePattern LIGHT_MARKED_DARKER= new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\marked-light-darker.png"));
+    protected static final ImagePattern DARK_MARKED_DARKER = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\marked-dark-darker.png"));
+    private static final ImagePattern DARK_QUEEN = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\dark-QUEEN.png"));
+    private static final ImagePattern LIGHT_QUEEN = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\light-QUEEN.png"));
+    private static final ImagePattern DARK_QUEEN_DARKER = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\dark-QUEEN-darker.png"));
+    private static final ImagePattern LIGHT_QUEEN_DARKER = new ImagePattern(new Image("C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers-Final\\Checkers\\light-QUEEN-darker.png"));
 
-    
+
     public Piece(short x, short y, boolean dark, History history, IPresenter presenter, VisualPlayer visualPlayer)
     {
         super();
         this.logicalPosition = new Position(x, y);
         this.presenter = presenter;
-        // this.makeQueen = false;
+        this.pieceMode = PieceMode.REGULAR;
         this.owner = visualPlayer;
         this.dark = dark;
         if (dark)
@@ -93,7 +105,7 @@ public class Piece extends Circle {
         this.setRadius(Piece.PIECE_RADIUS);
         this.setCenterX(piece.getX());
         this.setCenterY(piece.getY());
-        // this.makeQueen = piece.makeQueen;
+        this.pieceMode = PieceMode.REGULAR;
         this.color = piece.color;
         this.owner = piece.owner;
         this.presenter = piece.presenter;
@@ -126,6 +138,9 @@ public class Piece extends Circle {
         scaleTransition.setToY(DECREASE_SIZE);
         scaleTransition.setInterpolator(Interpolator.EASE_BOTH);
         DropShadow d = new DropShadow(SHADOW_RADIUS, Color.BLACK);
+        if (this.pieceMode == PieceMode.REGULAR) this.color = (this.dark) ? DARK_PIECE : LIGHT_PIECE;
+        if (this.pieceMode == PieceMode.MARKED) this.color = (this.dark) ? DARK_MARKED : LIGHT_MARKED;
+        if (this.pieceMode == PieceMode.QUEEN) this.color = (this.dark) ? DARK_QUEEN : LIGHT_QUEEN;
         this.setFill(this.color);
         this.setEffect(d);
         scaleTransition.play();
@@ -249,8 +264,6 @@ public class Piece extends Circle {
 
     public void setY(short y)
     {
-        // this.setCenterY(y);
-        // this.setLayoutY(y);
         this.logicalPosition.setY(y);
     }
 
@@ -259,14 +272,26 @@ public class Piece extends Circle {
         return this.dark;
     }
 
-    protected void changeOnClick()
+    public static void convertIntoQueen(Piece piece)
+    {
+        // piece.color = (piece.dark) ? DARK_PIECE : LIGHT_PIECE;
+        piece.color = (piece.dark) ? DARK_QUEEN : LIGHT_QUEEN;
+        piece.setFill(piece.color);
+        piece.setEffect(DROP_SHADOW);
+        piece.pieceMode = PieceMode.QUEEN;
+    }
+
+    private void changeOnClick()
     {
         // changes the tile when he clicks on it
         ScaleTransition scaleTransition = new ScaleTransition(new Duration(SCALE_DURATION), this);
         scaleTransition.setToX(INCREASE_SIZE);
         scaleTransition.setToY(INCREASE_SIZE);
         scaleTransition.setInterpolator(Interpolator.EASE_BOTH);
-        setFill(this.color.darker());
+        if (this.pieceMode == PieceMode.REGULAR) this.color = (this.dark) ? DARK_PIECE_DARKER : LIGHT_PIECE_DARKER;
+        if (this.pieceMode == PieceMode.MARKED) this.color = (this.dark) ? DARK_MARKED_DARKER : LIGHT_MARKED_DARKER;
+        if (this.pieceMode == PieceMode.QUEEN) this.color = (this.dark) ? DARK_QUEEN_DARKER : LIGHT_QUEEN_DARKER;
+        this.setFill(this.color);
         DropShadow d = new DropShadow(SHADOW_RADIUS * 1.25, Color.BLACK);
         setEffect(d);
         scaleTransition.play();
