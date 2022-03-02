@@ -160,8 +160,8 @@ public class Model implements IModel{
         long mask1, mask2, mask3, mask4, check1, check2, check3, check4;
         mask1 = src >> BitboardEssentials.VALID_EATING_STEP1;  // Upper Left
         mask2 = src >> BitboardEssentials.VALID_EATING_STEP2;  // Upper Right
-        mask3 = src << BitboardEssentials.VALID_EATING_STEP1;  // Lower Left
-        mask4 = src << BitboardEssentials.VALID_EATING_STEP2;  // Lower Right
+        mask3 = src << BitboardEssentials.VALID_EATING_STEP1;  // Lower Right
+        mask4 = src << BitboardEssentials.VALID_EATING_STEP2;  // Lower Left
         if (root == null)
         {
             return;
@@ -261,7 +261,14 @@ public class Model implements IModel{
         GeneralTree<Long> possibleChains = new GeneralTree<>(srcChain);
         if (checkIfQueen(player, realSrc))
         {
+            // TODO - remove queen before building tree, remove players that were eaten
+            long rivalPosition = Position.findMiddle(realSrc, srcChain);  // finds the position of the eaten rival's piece
+            boolean rivalQueenEaten = Model.checkIfQueen(this.getRival(), rivalPosition);
+            this.removePiece(player, realSrc);
+            this.removePiece(this.getRival(), rivalPosition);
             this.buildChainQueenPiece(possibleChains, player, srcChain);
+            this.placePiece(this.getRival(), rivalPosition, rivalQueenEaten);
+            this.placePiece(player, realSrc, true);
         }
         else {
             this.buildChainRegularPiece(possibleChains, player, srcChain);
@@ -390,16 +397,20 @@ public class Model implements IModel{
         // moves and updates boards according to move
         boolean queen = ((player.getQueenBoard() & src) != 0);  // is it a queen?
 
-        // moves bits (changes board according to move
+        // moves bits (changes board according to move)
         if (queen)  // move piece in queen board
         {
+            /* updates destination piece */
             long check1 = player.getQueenBoard() | dest;  // this OR dest
+            /* deletes source piece */
             long oppositeSrc = ~ src;  // NOT src
             player.setQueenBoard(check1 & oppositeSrc);  // final AND NOT src
         }
         else {  // move piece in piece board
+            /* updates destination piece */
             long check1 = player.getPieceBoard() | dest;  // this OR dest
-            long oppositeSrc = ~src;  // NOT src
+            /* deletes source piece */
+            long oppositeSrc = ~ src;  // NOT src
             player.setPieceBoard(check1 & oppositeSrc);  // final AND NOT src
         }
     }
