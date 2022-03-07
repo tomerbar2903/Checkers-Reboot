@@ -6,6 +6,8 @@ public class Model implements IModel{
     private LogicalPlayer player2;
     private LogicalPlayer currentTurn;
 
+    public enum AdjacencyType { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, NOT_ADJACENT };
+
     public Model()
     {
         this.player1 = new LogicalPlayer();
@@ -457,6 +459,11 @@ public class Model implements IModel{
         return logicalPlayer;
     }
 
+    public LogicalPlayer getRival(LogicalPlayer player) {
+        LogicalPlayer rival = (player == this.getCurrentTurn()) ? this.getRival() : this.getCurrentTurn();
+        return rival;
+    }
+
     public void printBoard()
     {
         long board1 = this.player1.getPieceBoard(), board2 = this.player2.getPieceBoard();
@@ -513,6 +520,125 @@ public class Model implements IModel{
             won = 1;
         }
         return won;
+    }
+
+    public void printAdjacentBoard()
+    {
+        // prints adjacent board nicely
+        long a1 = this.player1.getAdjacentToRival(), a2 = this.player2.getAdjacentToRival();
+        for (int i = 0 ; i < VisualBoard.getDimension() * VisualBoard.getDimension() ; i++) {
+            if (a1 % 2 != 0) {
+                System.out.print("1\t");
+            }
+            else if (a2 % 2 != 0) {
+                System.out.print("2\t");
+            }
+            else {
+                System.out.print((char)0xB7 + "\t");
+            }
+            if ((i + 1) % VisualBoard.getDimension() == 0) {
+                System.out.println();
+            }
+            a1 >>= 1;
+            a2 >>= 1;
+        }
+        System.out.print("\n\n");
+    }
+
+    public AdjacencyType getAdjacencyType(long pos1, long pos2) {
+        // returns the adjacency type between pos1 (src) pos2 (relative)
+        AdjacencyType adjacencyType = (pos1 << (VisualBoard.getDimension() + 1) == pos2) ? AdjacencyType.TOP_LEFT : AdjacencyType.NOT_ADJACENT;
+        adjacencyType = (pos1 << (VisualBoard.getDimension() - 1) == pos2) ? AdjacencyType.TOP_RIGHT : adjacencyType;
+        adjacencyType = (pos1 >> (VisualBoard.getDimension() - 1) == pos2) ? AdjacencyType.BOTTOM_LEFT : adjacencyType;
+        adjacencyType = (pos1 >> (VisualBoard.getDimension() + 1) == pos2) ? AdjacencyType.BOTTOM_RIGHT : adjacencyType;
+        return adjacencyType;
+    }
+
+    public long validateAdjacency(long src, LogicalPlayer player, long adjacentMask) {
+        // checks if adjacent to current player are already adjacent to another piece of current player - returns a mask of all exclusive adjacent pieces
+        LogicalPlayer rival = this.getRival(player);
+        long finalMask = 0;
+        long curAdjacent;  // each rival's adjacent mask
+        int index;  // the index in the bitboard
+        long pos;  // the actual number in the bitboard - ex. (index = 8  -->  pos = 256)
+        for (int i = 0 ; i < 4 && adjacentMask > 0; i++) {  // max adjacent pieces is 4
+            index = (int) BitboardEssentials.log2(adjacentMask);  // get index
+            pos = 1l << index;  // convert to position on bitboard
+            curAdjacent = BitboardEssentials.getCorners(pos, BitboardEssentials.ADJACENT_DIAMETER);
+            curAdjacent &= ~ src;  // remove src from adjacent mask
+            curAdjacent &= (rival.getQueenBoard() | rival.getPieceBoard());
+
+            // if the adjacent mask is 0 --> the piece is exclusively adjacent to src -> add to mask
+            finalMask = (curAdjacent != 0) ? finalMask : finalMask | pos;
+
+            // move to next position
+            adjacentMask -= pos;
+        }
+        return finalMask;
+    }
+
+
+
+    public void removeAdjacentFromSource(long src) {
+        // removes adjacent pieces from rival-adjacent board, if exclusively adjacent to piece at source
+        /* EXAMPLE
+        0 1 0 1 0
+        0 0 2 0 0
+
+        Let's say that the piece that is labeled as '1' (the right one) was moved on the board. we check all adjacent to it - so 2 is checked.
+        When checked, we notice that the 2 is still adjacent to another 1, so it's not removed.
+
+        0 1 0 0 0
+        2 0 0 0 0
+
+        Let's say that the piece that is labeled as '1' (the left one) was moved on the board. Here, the '2' will be removed from adjacentToRival board
+         */
+        LogicalPlayer cur = this.getCurrentTurn();
+        LogicalPlayer rival = this.getRival();
+
+        // get adjacent mask for source position - to access all rival adjacent pieces (to check and remove)
+        long adjacentMaskSrc = BitboardEssentials.getCorners(src, BitboardEssentials.ADJACENT_DIAMETER);
+
+        // get the rival adjacent pieces to source
+        adjacentMaskSrc &= (rival.getAdjacentToRival());
+
+        // returns a new mask containing only the pieces that are exclusively adjacent to source
+        adjacentMaskSrc = this.validateAdjacency(src, this.getRival(), adjacentMaskSrc);
+        rival.setAdjacentToRival(rival.getAdjacentToRival() & (~ adjacentMaskSrc));  // remove all exclusively adjacent pieces from rival's adjacent board
+        // remove src from current player's adjacency bitboard
+        cur.setAdjacentToRival(cur.getAdjacentToRival() & ~src);
+    }
+
+    public void addAdjacentInDestination(long dest) {
+        // adds new adjacent pieces according to destination
+        LogicalPlayer cur = this.getCurrentTurn();
+        LogicalPlayer rival = this.getRival();
+
+        long checkQueenAdjacent = BitboardEssentials.getAdjacentMask(dest, cur.isDark(), Model.checkIfQueen(cur, dest), true);  // check if update is needed backwards
+        checkQueenAdjacent &= rival.getQueenBoard();
+        // update queens on the back if needed
+        rival.setAdjacentToRival(rival.getAdjacentToRival() | checkQueenAdjacent);
+
+        // get adjacent mask according to piece
+        long adjacentMaskDest = BitboardEssentials.getAdjacentMask(dest, cur.isDark(), Model.checkIfQueen(cur, dest), false);
+        long rivalAdjacent = (rival.getPieceBoard() | rival.getQueenBoard()) & adjacentMaskDest;
+        if (rivalAdjacent != 0) {
+            // update current player's piece as adjacent to rival
+            cur.setAdjacentToRival(cur.getAdjacentToRival() | dest);
+
+            // update adjacent rival pieces as adjacent
+            rival.setAdjacentToRival(rival.getAdjacentToRival() | rivalAdjacent);
+        }
+    }
+
+    public void removePieceFromAdjacency(LogicalPlayer player, long pos) {
+        // removes a certain piece from adjacent board - updates adjacent rival pieces
+        LogicalPlayer rival = this.getRival(player);
+        long adjacentRivals = BitboardEssentials.getCorners(pos, BitboardEssentials.ADJACENT_DIAMETER);
+        adjacentRivals &= rival.getAdjacentToRival();
+        adjacentRivals = this.validateAdjacency(pos, this.getRival(player), adjacentRivals);
+        rival.setAdjacentToRival(rival.getAdjacentToRival() & ~adjacentRivals);
+        player.setAdjacentToRival(player.getAdjacentToRival() & ~pos);
     }
 }
 

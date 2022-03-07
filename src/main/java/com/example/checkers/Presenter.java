@@ -1,5 +1,7 @@
 package com.example.checkers;
 
+import javafx.geometry.Pos;
+
 import java.util.ArrayList;
 
 public class Presenter implements IPresenter{
@@ -35,6 +37,8 @@ public class Presenter implements IPresenter{
             if (!Model.checkIfQueen(this.model.getCurrentTurn(), srcLogic)) {
                 checkQueen = this.model.checkQueen(this.model.getCurrentTurn(), destLogic);
             }
+            this.model.removeAdjacentFromSource(srcLogic);
+            this.model.addAdjacentInDestination(destLogic);
             this.model.updateBoards(this.model.getCurrentTurn(), srcLogic, destLogic);
             this.sendMove(src, dest, checkQueen);
             this.model.switchTurns();
@@ -42,7 +46,8 @@ public class Presenter implements IPresenter{
         }
         else if (this.model.validEatingMove(this.model.getCurrentTurn(), srcLogic, destLogic))  // eating move
         {
-
+            this.model.removeAdjacentFromSource(srcLogic);
+            this.model.removePieceFromAdjacency(this.model.getRival(), Position.findMiddle(srcLogic, destLogic));  // removes eaten piece from adjacency board
             GeneralTree<Long> chain = this.model.chain(this.model.getCurrentTurn(), destLogic, srcLogic);
             if (chain != null)
             {
@@ -53,6 +58,7 @@ public class Presenter implements IPresenter{
             else
             {
                 this.eat(srcLogic, destLogic, false);
+                this.model.addAdjacentInDestination(destLogic);
                 this.model.switchTurns();
                 this.gameView.switchTurns();
             }
@@ -72,6 +78,7 @@ public class Presenter implements IPresenter{
         {
             this.gameView.loseMessage();
         }
+        this.model.printAdjacentBoard();
     }
 
     public void eat(long srcLogic, long destLogic, boolean chain)

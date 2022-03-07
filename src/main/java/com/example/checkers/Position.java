@@ -1,5 +1,9 @@
 package com.example.checkers;
 
+import javafx.geometry.Pos;
+
+import java.util.ArrayList;
+
 public class Position {
 
     private static final int BASE = 2;
@@ -79,6 +83,45 @@ public class Position {
         exponent = (exponent > 0) ? exponent : (short) -exponent;
         long result = 1L << exponent;
         return result;
+    }
+
+    public static long[] extractAdjacentPositions(long bitwisePositions) {
+        // extracts all adjacent (existent) positions into an array (size of 4 - max adjacent)
+        /*
+        CALCULATION:
+        1. take the second log out of bitwisePositions. cast To int
+        2. add result to array
+        3. subtract result from bitwisePositions
+        4. repeat until bitwisePositions = 0 (at most - 4 times -> in case of surrounded queen)
+         */
+        long[] positions = new long[4];
+        int index = 0;
+        for (; index < 4 && bitwisePositions > 0 ; index++) {
+            int place = (int) BitboardEssentials.log2(bitwisePositions);
+            long pos = 1L << place;
+            positions[index] = pos;
+            bitwisePositions -= pos;
+        }
+        return positions;
+    }
+
+    public static ArrayList<Long> extractPositions(long bitPositions) {
+        // extracts all positions into an array list
+        /*
+        CALCULATION:
+        1. take the second log out of bitwisePositions. cast To int
+        2. add result to array
+        3. subtract result from bitwisePositions
+        4. repeat until bitwisePositions = 0
+         */
+        ArrayList<Long> positions = new ArrayList<>();
+        while (bitPositions > 0) {
+            int place = (int) BitboardEssentials.log2(bitPositions);
+            long pos = 1 << place;
+            positions.add(pos);
+            bitPositions -= place;
+        }
+        return positions;
     }
 }
 
