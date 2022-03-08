@@ -25,28 +25,30 @@ public class Presenter implements IPresenter{
     }
 
     @Override
-    public void sendMoveToCheck(Position src, Position dest) {
+    public void sendMoveToCheck(Position src, Position dest, boolean trueRegular, boolean trueEating) {
 
         long srcLogic = Position.positionToLogicalNumber(src);
         long destLogic = Position.positionToLogicalNumber(dest);
 
-        boolean ok = this.model.validMove(this.model.getCurrentTurn(), srcLogic, destLogic);
-        if (ok)  // regular move
+        boolean isQueen = Model.checkIfQueen(this.model.getCurrentTurn(), srcLogic);
+
+        if (trueRegular)  // regular move
         {
             long checkQueen = 0;
-            if (!Model.checkIfQueen(this.model.getCurrentTurn(), srcLogic)) {
+
+            if (!isQueen) {
                 checkQueen = this.model.checkQueen(this.model.getCurrentTurn(), destLogic);
             }
             this.model.removeAdjacentFromSource(srcLogic);
-            this.model.addAdjacentInDestination(destLogic);
+            this.model.addAdjacentInDestination(this.model.getCurrentTurn(), destLogic, isQueen);
             this.model.updateBoards(this.model.getCurrentTurn(), srcLogic, destLogic);
             this.sendMove(src, dest, checkQueen);
             this.model.switchTurns();
             this.gameView.switchTurns();
         }
-        else if (this.model.validEatingMove(this.model.getCurrentTurn(), srcLogic, destLogic))  // eating move
+        else if (trueEating)  // eating move
         {
-            this.model.removeAdjacentFromSource(srcLogic);
+            this.model.removePieceFromAdjacency(this.model.getCurrentTurn(), srcLogic);
             this.model.removePieceFromAdjacency(this.model.getRival(), Position.findMiddle(srcLogic, destLogic));  // removes eaten piece from adjacency board
             GeneralTree<Long> chain = this.model.chain(this.model.getCurrentTurn(), destLogic, srcLogic);
             if (chain != null)
@@ -58,10 +60,10 @@ public class Presenter implements IPresenter{
             else
             {
                 this.eat(srcLogic, destLogic, false);
-                this.model.addAdjacentInDestination(destLogic);
-                this.model.switchTurns();
-                this.gameView.switchTurns();
+                this.model.addAdjacentInDestination(this.model.getCurrentTurn(), destLogic, isQueen);
             }
+            this.model.switchTurns();
+            this.gameView.switchTurns();
         }
         else  // invalid move
         {
@@ -79,6 +81,19 @@ public class Presenter implements IPresenter{
             this.gameView.loseMessage();
         }
         this.model.printAdjacentBoard();
+        BitboardEssentials.printBoard(this.model.generateMustEatTilesAndPieces());
+        BitboardEssentials.printBoard(this.model.getCurrentTurn().getMustEatPieces());
+        this.handleMustEat();
+    }
+
+    public void handleMustEat() {
+        // runs in a loop until there are no "must eat" moves
+        long mustEat = this.model.generateMustEatTilesAndPieces();
+        if (mustEat != 0) {
+            ArrayList<Position> pieces = Position.extractPositions(this.model.getCurrentTurn().getMustEatPieces());
+            ArrayList<Position> tiles = Position.extractPositions(mustEat);
+            this.gameView.setMarked(pieces, tiles);
+        }
     }
 
     public void eat(long srcLogic, long destLogic, boolean chain)
@@ -87,10 +102,11 @@ public class Presenter implements IPresenter{
         // calculates wanted eating position
         Position src = Position.logicalNumberToPosition(srcLogic);
         Position dest = Position.logicalNumberToPosition(destLogic);
-        Position eaten = new Position((short) ((src.getX() + dest.getX()) / 2), (short) ((src.getY() + dest.getY()) / 2));
+        Position eaten = Position.findMiddle(src, dest);
+        long eatenLogic = Position.findMiddle(srcLogic, destLogic);
 
         // removes from boards
-        this.model.removePiece(this.model.getRival(), Position.findMiddle(srcLogic, destLogic));
+        this.model.removePiece(this.model.getRival(), eatenLogic);
 
         // check queen after eating
         long madeQueenCheck = 0;
@@ -109,19 +125,23 @@ public class Presenter implements IPresenter{
         if (chain.isLeaf())
         {
             // newQueenPosition - 0 if already a queen or not a queen, the position otherwise
-            long newQueenPosition = (Model.checkIfQueen(this.model.getCurrentTurn(), chain.getInfo())) ? 0 : this.model.checkQueen(this.model.getCurrentTurn(), chain.getInfo());
+            boolean isQueen = Model.checkIfQueen(this.model.getCurrentTurn(), chain.getInfo());
+            long newQueenPosition = (isQueen) ? 0 : this.model.checkQueen(this.model.getCurrentTurn(), chain.getInfo());
             if (newQueenPosition != 0) {
                 this.model.moveFromPieceToQueen(this.model.getCurrentTurn(), newQueenPosition);
                 this.gameView.makeQueen(Position.logicalNumberToPosition(newQueenPosition));
             }
-            this.model.switchTurns();
-            this.gameView.switchTurns();
+            this.model.addAdjacentInDestination(this.model.getCurrentTurn(), chain.getInfo(), isQueen);
             return;
         }
         if (chain.hasOneSon())
         {
             GeneralTree<Long> onlySon = chain.getFirstSon();
+            this.model.removePieceFromAdjacency(this.model.getCurrentTurn(), chain.getInfo());
+            long eaten = Position.findMiddle(chain.getInfo(), onlySon.getInfo());
+            this.model.removePieceFromAdjacency(this.model.getRival(), eaten);
             this.eat(chain.getInfo(), onlySon.getInfo(), !onlySon.isLeaf());  // (isLeaf() - still a chain after this move ?)
+            this.model.printAdjacentBoard();
             this.dealWithChain(onlySon);
             return;
         }
@@ -136,10 +156,9 @@ public class Presenter implements IPresenter{
         // continues the chain when user chose a destination
         if (this.currentChain != null) {
             long src = this.currentChain.getInfo();
-            ArrayList<Position> optionsToHide = this.currentChain.generateSonsListAsPosition();
             this.currentChain = this.currentChain.findSon(Position.positionToLogicalNumber(destChosen));  // changes the root to be the chosen path
             this.eat(src, Position.positionToLogicalNumber(destChosen), this.currentChain.isLeaf());  // (isLeaf() - chain after move ?)
-            this.gameView.hideCurrentOptions(optionsToHide);
+            this.gameView.hideCurrentOptions();
             this.dealWithChain(this.currentChain);  // deals with sub-chains
             this.currentChain = null;  // re-initiates the current chain tree
         }
@@ -181,7 +200,29 @@ public class Presenter implements IPresenter{
         this.gameView.loseMessage();
     }
 
-    // public void sendChainEatingMoves(GeneralTree<Long> possibleMoves)
+    private LogicalPlayer convert(VisualPlayer player) {
+        LogicalPlayer player1 = (player.isMe()) ? (this.model.getPlayerFromId(1)) : this.model.getPlayerFromId(2);  // get appropriate player
+        return player1;
+    }
 
+    @Override
+    public boolean validMove(VisualPlayer player, Position src, Position dest) {
+        // checks with the model if a move is fine (regular)
+        LogicalPlayer player1 = this.convert(player);
+        long srcLogic, destLogic;
+        srcLogic = Position.positionToLogicalNumber(src);
+        destLogic = Position.positionToLogicalNumber(dest);
+        return this.model.validMove(player1, srcLogic, destLogic);
+    }
+
+    @Override
+    public boolean validEatingMove(VisualPlayer player, Position src, Position dest) {
+        // checks with the model if a move is fine (eating)
+        LogicalPlayer player1 = this.convert(player);
+        long srcLogic, destLogic;
+        srcLogic = Position.positionToLogicalNumber(src);
+        destLogic = Position.positionToLogicalNumber(dest);
+        return this.model.validEatingMove(player1, srcLogic, destLogic, Model.checkIfQueen(player1, srcLogic));
+    }
 }
 

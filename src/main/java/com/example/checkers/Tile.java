@@ -13,7 +13,7 @@ public class Tile extends Rectangle{
     protected Color color;
     private History history;
     private IPresenter presenter;
-    private boolean state;  // if the tile is suggested as an option: false - regular, true  - suggestion
+    private TileState state;  // if the tile is suggested as an option: false - regular, true  - suggestion
     private static boolean suggestionMode = false;  // if in an eating chain, no other tiles can be clicked
     private static Queue<Tile> suggestedTiles = new Queue<>();
 
@@ -29,7 +29,7 @@ public class Tile extends Rectangle{
     public Tile(int width, int height, Color color)
     {
         super(width, height, color);
-        this.state = false;
+        this.state = TileState.REGULAR;
         this.color = color;
     }
 
@@ -38,7 +38,7 @@ public class Tile extends Rectangle{
         // dark tile if true, light otherwise
         super(Tile.CHECKERS_TILE_SIZE, Tile.CHECKERS_TILE_SIZE);
         this.history = history;
-        this.state = false;
+        this.state = TileState.REGULAR;
         if (dark)
         {
             this.color = Tile.TILE_COLOR_DARK;
@@ -53,11 +53,37 @@ public class Tile extends Rectangle{
                     if (!history.isEmpty()) {
                         Piece srcPiece = (Piece) history.pop();
                         Position src = srcPiece.getLogicalPosition();
-                        srcPiece.undoExpand();
-                        presenter.sendMoveToCheck(src, dest);
-                        history.emptyHistory();
+                        boolean regularMoveCheck = presenter.validMove(srcPiece.owner, src, dest);
+                        boolean eatingMoveCheck = presenter.validEatingMove(srcPiece.owner, src, dest);
+                        if (suggestionMode)
+                        {
+                            if (state == TileState.OPTION) {
+                                if (regularMoveCheck || eatingMoveCheck) {
+                                    srcPiece.owner.unmarkPieces();
+                                    Tile.hideOptions();
+                                    Tile.suggestionMode = false;
+                                    Piece.setSuggestionMode(false);
+                                    presenter.sendMoveToCheck(src, dest, regularMoveCheck, eatingMoveCheck);
+                                    srcPiece.undoExpand();
+                                }
+                                else {
+                                    fillTile();
+                                }
+                            }
+                        }
+                        else {
+                            if (regularMoveCheck || eatingMoveCheck) {
+                                srcPiece.undoExpand();
+                                presenter.sendMoveToCheck(src, dest, regularMoveCheck, eatingMoveCheck);
+                                history.emptyHistory();
+                            }
+                            else {
+                                fillTile();
+                            }
+                        }
+                        history.push(srcPiece);
                     }
-                    else if (state && suggestionMode)  // if is currently part of an eating chain
+                    else if (state == TileState.CHAIN && suggestionMode)  // if is currently part of an eating chain
                     {
                         presenter.continueChain(dest);
                     }
@@ -71,7 +97,7 @@ public class Tile extends Rectangle{
         this.setFill(this.color);
     }
 
-    public void setState(boolean state) {
+    public void setState(TileState state) {
         this.state = state;
     }
 
@@ -83,21 +109,23 @@ public class Tile extends Rectangle{
     {
         // changes a color of a specific tile - when invalid destination
         FillTransition fillTransition = new FillTransition(new Duration(FILL_TRANSITION_DURATION), this);
+        Color current = (this.state == TileState.OPTION) ? TILE_COLOR_WAIT_FOR_INPUT : TILE_COLOR_DARK;
         fillTransition.setToValue(FILL_COLOR);
         fillTransition.play();
         fillTransition.setOnFinished(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent actionEvent) {
                 // undo the fill transition
-                unFillTile();
+                unFillTile(current);
             }
         });
     }
 
-    public void showAsOption()
+    public void showAsOption(TileState stateOption)
     {
         // sets the color to blue, sets the state to true - now it's suggested
-        this.state = true;
+        // stateOption - chain / option. depends on call
+        this.state = stateOption;
         FillTransition fillTransition = new FillTransition(new Duration(FILL_TRANSITION_DURATION), this);
         fillTransition.setToValue(TILE_COLOR_WAIT_FOR_INPUT);
         Tile.suggestedTiles.insert(this);  // pushes this tile into the queue, to be removed later
@@ -111,18 +139,23 @@ public class Tile extends Rectangle{
         while (!Tile.suggestedTiles.isEmpty())
         {
             current = Tile.suggestedTiles.remove();
-            current.setState(false);
-            current.unFillTile();
+            current.state = TileState.REGULAR;
+            current.unFillTile(TILE_COLOR_DARK);
         }
+        Tile.suggestionMode = false;
     }
 
-    public void unFillTile()
+    private Color getColor() {
+        // returns the color of the tile
+        double r = this.color.getRed(), g = this.color.getGreen(), b = this.color.getBlue(), o = this.color.getOpacity();
+        return new Color(r, g, b, o);
+    }
+
+    public void unFillTile(Color c)
     {
-        // sets tile as original
-        Tile.suggestionMode = false;
-        this.state = false;  // not suggested anymore
+        // sets tile as previous color
         FillTransition fillTransition = new FillTransition(new Duration(FILL_TRANSITION_DURATION), this);
-        fillTransition.setToValue(TILE_COLOR_DARK);
+        fillTransition.setToValue(c);
         fillTransition.play();
     }
 

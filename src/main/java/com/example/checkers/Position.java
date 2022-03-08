@@ -77,6 +77,12 @@ public class Position {
         return 1L << middle;
     }
 
+    public static Position findMiddle(Position pos1, Position pos2)
+    {
+        // finds the middle between 2 points on the board
+        return new Position((short) ((pos1.getX() + pos2.getX()) / 2), (short) ((pos1.getY() + pos2.getY()) / 2));
+    }
+
     public static long positionToLogicalNumber(Position position) {
         // converts position into a logical number
         short exponent = (short) (position.y * VisualBoard.getDimension() + position.x);
@@ -105,7 +111,7 @@ public class Position {
         return positions;
     }
 
-    public static ArrayList<Long> extractPositions(long bitPositions) {
+    public static ArrayList<Long> extractPositionsLong(long bitPositions) {
         // extracts all positions into an array list
         /*
         CALCULATION:
@@ -117,9 +123,28 @@ public class Position {
         ArrayList<Long> positions = new ArrayList<>();
         while (bitPositions > 0) {
             int place = (int) BitboardEssentials.log2(bitPositions);
-            long pos = 1 << place;
+            long pos = 1L << place;
             positions.add(pos);
-            bitPositions -= place;
+            bitPositions -= pos;
+        }
+        return positions;
+    }
+
+    public static ArrayList<Position> extractPositions(long bitPositions) {
+        // extracts all positions into an array list
+        /*
+        CALCULATION:
+        1. take the second log out of bitwisePositions. cast To int
+        2. add result to array
+        3. subtract result from bitwisePositions
+        4. repeat until bitwisePositions = 0
+         */
+        ArrayList<Position> positions = new ArrayList<>();
+        while (bitPositions > 0) {
+            int place = (int) BitboardEssentials.log2(bitPositions);
+            long pos = 1L << place;
+            positions.add(Position.logicalNumberToPosition(pos));
+            bitPositions -= pos;
         }
         return positions;
     }

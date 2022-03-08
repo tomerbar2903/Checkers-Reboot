@@ -1,23 +1,21 @@
 package com.example.checkers;
 
-public class Model implements IModel{
+public class Model implements IModel {
 
     private LogicalPlayer player1;
     private LogicalPlayer player2;
     private LogicalPlayer currentTurn;
 
-    public enum AdjacencyType { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, NOT_ADJACENT };
+    public enum AdjacencyType {TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, NOT_ADJACENT}
 
-    public Model()
-    {
+    public Model() {
         this.player1 = new LogicalPlayer();
         this.player2 = new LogicalPlayer();
         this.currentTurn = this.player2;
         this.printBoard();
     }
 
-    public static boolean checkIfQueen(LogicalPlayer player, long pos)
-    {
+    public static boolean checkIfQueen(LogicalPlayer player, long pos) {
         // returns true if pos in queen piece
         return ((player.getQueenBoard() & pos) != 0);
     }
@@ -25,366 +23,192 @@ public class Model implements IModel{
     @Override
     public boolean validMove(LogicalPlayer player, long src, long dest) {
         // checks if a move is valid
-        boolean queen = Model.checkIfQueen(player, src);  // is it a queen?
-
-        // checks if destination is empty
-        boolean valid = this.emptyPosition(dest);
-
-        // destinations check masks
-        long maskDark1 = dest << (BitboardEssentials.VALID_STEP1);  // moves destination one way towards the src  (up)
-        long maskDark2 = dest << (BitboardEssentials.VALID_STEP2);  // moves destination one way towards the src  (up)
-        long maskLight1 = dest >> (BitboardEssentials.VALID_STEP1);  // moves destination one way towards the src  (down)
-        long maskLight2 = dest >> (BitboardEssentials.VALID_STEP2);  // moves destination one way towards the src  (down)
-
-        if (!queen && valid)  // if a regular piece + destination is empty
-        {
-            // sets valid true if:
-            //      dark -> the manipulation over dest has gotten to dest (forwards)
-            //      light -> the manipulation over dest has gotten to dest (backwards)
-            valid = (player.isDark()) ? ((maskDark1 & src) != 0 || (maskDark2 & src) != 0) : ((maskLight1 & src) != 0 || (maskLight2 & src) != 0);
-        }
-
-        else if (queen && valid)  // piece is a queen - moves all directions (1 only)
-        {
-            // if any of the four surrounding the piece is the chosen one
-            valid = ((maskDark1 & src) != 0 || (maskDark2 & src) != 0 || (maskLight1 & src) != 0 || (maskLight2 & src) != 0);
-        }
-        return valid;
+        long adjacentTiles = BitboardEssentials.getAdjacentMask(src, player.isDark(), Model.checkIfQueen(player, src), false);
+        return ((dest & adjacentTiles) != 0) && this.emptyPosition(dest);
     }
 
-    public static boolean checkOutOfBounds(long pos)
-    {
+    public static boolean checkOutOfBounds(long pos) {
         // checks if a shift result puts the position in a white tile
         return ((pos & BitboardEssentials.WHITE_TILES) == 0);
     }
 
-    public void buildChainRegularPiece(GeneralTree<Long> root, LogicalPlayer player, long src)
-    {
+    public void buildChainRegularPiece(GeneralTree<Long> root, LogicalPlayer player, long src) {
         // return a tree of all possible eating moves from src.
-        long mask1, mask2, check1, check2;
-        if (root == null)
-        {
-            return;
-        }
-        if (src == 0)  // reached the end of boundaries
-        {
-            return;
-        }
-        if (player.isDark())
-        {
-            mask1 = src >> BitboardEssentials.VALID_EATING_STEP1;
-            mask2 = src >> BitboardEssentials.VALID_EATING_STEP2;
-            // checks if the eating destination of mask1 and mask2 exists in other boards
-            check1 = mask1 & (player.getQueenBoard() | player.getPieceBoard() | this.getRival().getPieceBoard() | this.getRival().getQueenBoard());
-            if (check1 == 0 && this.checkRivalInTheMiddle(src, mask1))  // checks existence of the rival in the middle
-            {
-                if ((mask1 != 0) && checkOutOfBounds(mask1)){
-                    // adds to tree
-                    root.setUpperLeft(new GeneralTree<>(mask1));
-                    long rivalPosition = Position.findMiddle(src, mask1);  // the middle between the src and the dest - saves it
-                    boolean queenCheck = Model.checkIfQueen(this.getRival(), rivalPosition);  // check if queen was eaten (to know where to remove it)
-                    this.removePiece(this.getRival(), rivalPosition);  // removes piece temporarily
-                    // builds all sub chains of this path
-                    this.buildChainRegularPiece(root.getUpperLeft(), player, mask1);
-                    this.placePiece(this.getRival(), rivalPosition, queenCheck);  // places the piece "eaten" in the recursion
-                }
-                else
-                {
-                    return;
-                }
+        // get possible landing destinations after an eating move
+        long possibleEatingDestinations = BitboardEssentials.getCorners(src, BitboardEssentials.CHECK_EAT_DIAMETER);
+        possibleEatingDestinations = BitboardEssentials.validateForPlayer(src, possibleEatingDestinations, player.isDark(), VisualBoard.getDimension());
+
+        int sonIndex = 0;
+        long positionInBitboard;
+        int index;
+
+        // run until all positions in possibleEatingDestinations are covered
+        for (int i = 0; i < 4 && possibleEatingDestinations > 0; i++) {
+
+            // get index in bitboard
+            index = (int) BitboardEssentials.log2(possibleEatingDestinations);
+            // convert into position (full-on number)
+            positionInBitboard = 1L << index;
+
+            // check if this current destination makes a valid eating move
+            if (validEatingMove(player, src, positionInBitboard, false)) {
+                // remove current piece (for enabling returning to the same position in the chain
+                this.removePiece(player, src);
+                // find eating piece's position
+                long eaten = Position.findMiddle(src, positionInBitboard);
+                // check if a queen was eaten (for later - when adding back to the board)
+                boolean rivalQueen = Model.checkIfQueen(this.getRival(player), eaten);
+
+                // remove rival's piece
+                this.removePiece(this.getRival(player), eaten);
+
+                // make a new node in the tree, and assign it as a son of root
+                GeneralTree<Long> eatingDest = new GeneralTree<>(positionInBitboard);
+                root.put(eatingDest, sonIndex);
+
+                // call the function for the son
+                buildChainRegularPiece(root.get(sonIndex), player, positionInBitboard);
+
+                // places back pieces on the board
+                this.placePiece(player, src, false);
+                this.placePiece(this.getRival(player), eaten, rivalQueen);
+
+                // increments the index for later inserting operations on SONS array of the tree
+                sonIndex++;
             }
-            check2 = mask2 & (player.getQueenBoard() | player.getPieceBoard() | this.getRival().getPieceBoard() | this.getRival().getQueenBoard());
-            if (check2 == 0 && this.checkRivalInTheMiddle(src, mask2))  // checks existence of the rival in the middle
-            {
-                if ((mask2 != 0) && checkOutOfBounds(mask2)) {
-                    // adds to tree
-                    root.setUpperRight(new GeneralTree<>(mask2));
-                    long rivalPosition = Position.findMiddle(src, mask2);  // the middle between the src and the dest - saves it
-                    boolean queenCheck = Model.checkIfQueen(this.getRival(), rivalPosition);  // check if queen was eaten (to know where to remove it)
-                    this.removePiece(this.getRival(), rivalPosition);  // removes piece temporarily
-                    // builds all sub chains of this path
-                    this.buildChainRegularPiece(root.getUpperRight(), player, mask2);
-                    this.placePiece(this.getRival(), rivalPosition, queenCheck);  // places the piece "eaten" in the recursion
-                }
-                else
-                {
-                    return;
-                }
-            }
-        }
-        else
-        {
-            mask1 = src << BitboardEssentials.VALID_EATING_STEP1;
-            mask2 = src << BitboardEssentials.VALID_EATING_STEP2;
-            // checks if the eating destination of mask1 and mask2 exists in other boards
-            check1 = mask1 & (player.getQueenBoard() | player.getPieceBoard() | this.getRival().getPieceBoard() | this.getRival().getQueenBoard());
-            if (check1 == 0 && this.checkRivalInTheMiddle(src, mask1))  // checks existence of the rival in the middle
-            {
-                if ((mask1 != 0) && checkOutOfBounds(mask1)) {
-                    // adds to tree
-                    root.setLowerRight(new GeneralTree<>(mask1));
-                    long rivalPosition = Position.findMiddle(src, mask1);  // the middle between the src and the dest - saves it
-                    boolean queenCheck = Model.checkIfQueen(this.getRival(), rivalPosition);  // check if queen was eaten (to know where to remove it)
-                    this.removePiece(this.getRival(), rivalPosition);  // removes piece temporarily
-                    // builds all sub chains of this path
-                    this.buildChainRegularPiece(root.getLowerRight(), player, mask1);
-                    this.placePiece(this.getRival(), rivalPosition, queenCheck);  // places the piece "eaten" in the recursion
-                }
-                else
-                {
-                    return;
-                }
-            }
-            check2 = mask2 & (player.getQueenBoard() | player.getPieceBoard() | this.getRival().getPieceBoard() | this.getRival().getQueenBoard());
-            if (check2 == 0 && this.checkRivalInTheMiddle(src, mask2))  // checks existence of the rival in the middle
-            {
-                if ((mask2 != 0) && checkOutOfBounds(mask2)) {
-                    // adds to tree
-                    root.setLowerLeft(new GeneralTree<>(mask2));
-                    long rivalPosition = Position.findMiddle(src, mask2);  // the middle between the src and the dest - saves it
-                    boolean queenCheck = Model.checkIfQueen(this.getRival(), rivalPosition);  // check if queen was eaten (to know where to remove it)
-                    this.removePiece(this.getRival(), rivalPosition);  // removes piece temporarily
-                    // builds all sub chains of this path
-                    this.buildChainRegularPiece(root.getLowerLeft(), player, mask2);
-                    this.placePiece(this.getRival(), rivalPosition, queenCheck);  // places the piece "eaten" in the recursion
-                }
-                else
-                {
-                    return;
-                }
-            }
+            // remove this current destination from the mask
+            possibleEatingDestinations -= positionInBitboard;
         }
     }
 
-    public void buildChainQueenPiece(GeneralTree<Long> root, LogicalPlayer player, long src)
-    {
+    public void buildChainQueenPiece(GeneralTree<Long> root, LogicalPlayer player, long src) {
         // return a tree of all possible eating moves from src.
-        long mask1, mask2, mask3, mask4, check1, check2, check3, check4;
-        mask1 = src >> BitboardEssentials.VALID_EATING_STEP1;  // Upper Left
-        mask2 = src >> BitboardEssentials.VALID_EATING_STEP2;  // Upper Right
-        mask3 = src << BitboardEssentials.VALID_EATING_STEP1;  // Lower Right
-        mask4 = src << BitboardEssentials.VALID_EATING_STEP2;  // Lower Left
-        if (root == null)
-        {
-            return;
-        }
-        if (src == 0)  // reached the end of boundaries
-        {
-            return;
-        }
-        // checks if the eating destination of mask1 and mask2 exists in other boards
-        check1 = mask1 & (player.getQueenBoard() | player.getPieceBoard() | this.getRival().getPieceBoard() | this.getRival().getQueenBoard());
-        if (check1 == 0 && this.checkRivalInTheMiddle(src, mask1))  // checks existence of the rival in the middle
-        {
-            if ((mask1 != 0) && checkOutOfBounds(mask1)){
-                // adds to tree
-                root.setUpperLeft(new GeneralTree<>(mask1));
-                long rivalPosition = Position.findMiddle(src, mask1);  // the middle between the src and the dest - saves it
-                boolean queenCheck = Model.checkIfQueen(this.getRival(), rivalPosition);  // check if queen was eaten (to know where to remove it)
-                this.removePiece(this.getRival(), rivalPosition);  // removes piece temporarily
-                // builds all sub chains of this path
-                this.buildChainQueenPiece(root.getUpperLeft(), player, mask1);
-                this.placePiece(this.getRival(), rivalPosition, queenCheck);  // places the piece "eaten" in the recursion
-            }
-            else
-            {
-                return;
-            }
-        }
-        check2 = mask2 & (player.getQueenBoard() | player.getPieceBoard() | this.getRival().getPieceBoard() | this.getRival().getQueenBoard());
-        if (check2 == 0 && this.checkRivalInTheMiddle(src, mask2))  // checks existence of the rival in the middle
-        {
-            if ((mask2 != 0) && checkOutOfBounds(mask2)) {
-                // adds to tree
-                root.setUpperRight(new GeneralTree<>(mask2));
-                long rivalPosition = Position.findMiddle(src, mask2);  // the middle between the src and the dest - saves it
-                boolean queenCheck = Model.checkIfQueen(this.getRival(), rivalPosition);  // check if queen was eaten (to know where to remove it)
-                this.removePiece(this.getRival(), rivalPosition);  // removes piece temporarily
-                // builds all sub chains of this path
-                this.buildChainQueenPiece(root.getUpperRight(), player, mask2);
-                this.placePiece(this.getRival(), rivalPosition, queenCheck);  // places the piece "eaten" in the recursion
-            }
-            else
-            {
-                return;
-            }
-        }
-        // checks if the eating destination of mask1 and mask2 exists in other boards
-        check3 = mask3 & (player.getQueenBoard() | player.getPieceBoard() | this.getRival().getPieceBoard() | this.getRival().getQueenBoard());
-        if (check3 == 0 && this.checkRivalInTheMiddle(src, mask3))  // checks existence of the rival in the middle
-        {
-            if ((mask3 != 0) && checkOutOfBounds(mask3)) {
-                // adds to tree
-                root.setLowerRight(new GeneralTree<>(mask3));
-                long rivalPosition = Position.findMiddle(src, mask3);  // the middle between the src and the dest - saves it
-                boolean queenCheck = Model.checkIfQueen(this.getRival(), rivalPosition);  // check if queen was eaten (to know where to remove it)
-                this.removePiece(this.getRival(), rivalPosition);  // removes piece temporarily
-                // builds all sub chains of this path
-                this.buildChainQueenPiece(root.getLowerRight(), player, mask3);
-                this.placePiece(this.getRival(), rivalPosition, queenCheck);  // places the piece "eaten" in the recursion
-            }
-            else
-            {
-                return;
-            }
-        }
-        check4 = mask4 & (player.getQueenBoard() | player.getPieceBoard() | this.getRival().getPieceBoard() | this.getRival().getQueenBoard());
-        if (check4 == 0 && this.checkRivalInTheMiddle(src, mask4))  // checks existence of the rival in the middle
-        {
-            if ((mask4 != 0) && checkOutOfBounds(mask4)) {
-                // adds to tree
-                root.setLowerLeft(new GeneralTree<>(mask4));
-                long rivalPosition = Position.findMiddle(src, mask4);  // the middle between the src and the dest - saves it
-                boolean queenCheck = Model.checkIfQueen(this.getRival(), rivalPosition);  // check if queen was eaten (to know where to remove it)
-                this.removePiece(this.getRival(), rivalPosition);  // removes piece temporarily
-                // builds all sub chains of this path
-                this.buildChainQueenPiece(root.getLowerLeft(), player, mask4);
-                this.placePiece(this.getRival(), rivalPosition, queenCheck);  // places the piece "eaten" in the recursion
-            }
-            else
-            {
-                return;
-            }
-        }
 
+        // get possible landing destinations after an eating move
+        long possibleEatingDestinations = BitboardEssentials.getCorners(src, BitboardEssentials.CHECK_EAT_DIAMETER);
+
+        int sonIndex = 0;
+        long positionInBitboard;
+        int index;
+
+        // run until all positions in possibleEatingDestinations are covered
+        for (int i = 0; i < 4 && possibleEatingDestinations > 0; i++) {
+
+            // get index in bitboard
+            index = (int) BitboardEssentials.log2(possibleEatingDestinations);
+            // convert into position (full-on number)
+            positionInBitboard = 1L << index;
+
+            // check if this current destination makes a valid eating move
+            if (validEatingMove(player, src, positionInBitboard, true)) {
+                // remove current piece (for enabling returning to the same position in the chain
+                this.removePiece(player, src);
+                // find eating piece's position
+                long eaten = Position.findMiddle(src, positionInBitboard);
+                // check if a queen was eaten (for later - when adding back to the board)
+                boolean rivalQueen = Model.checkIfQueen(this.getRival(player), eaten);
+
+                // remove rival's piece
+                this.removePiece(this.getRival(player), eaten);
+
+                // make a new node in the tree, and assign it as a son of root
+                GeneralTree<Long> eatingDest = new GeneralTree<>(positionInBitboard);
+                root.put(eatingDest, sonIndex);
+
+                // call the function for the son
+                buildChainQueenPiece(root.get(sonIndex), player, positionInBitboard);
+
+                // places back pieces on the board
+                this.placePiece(player, src, true);
+                this.placePiece(this.getRival(player), eaten, rivalQueen);
+
+                // increments the index for later inserting operations on SONS array of the tree
+                sonIndex++;
+            }
+            // remove this current destination from the mask
+            possibleEatingDestinations -= positionInBitboard;
+        }
     }
 
-    public boolean checkRivalInTheMiddle(long src, long dest)
-    {
+    public boolean checkRivalInTheMiddle(long src, long dest) {
         // returns true if the rival is in the middle between src and dest
         long middle = Position.findMiddle(src, dest);
         LogicalPlayer rival = this.getRival();
         return ((middle & rival.getQueenBoard()) != 0) || ((middle & rival.getPieceBoard()) != 0);
     }
 
-    public GeneralTree<Long> getPossibleChains(LogicalPlayer player, long srcChain, long realSrc)
-    {
+    public GeneralTree<Long> getPossibleChains(LogicalPlayer player, long srcChain, long realSrc) {
         // src - actually the destination after eating
         GeneralTree<Long> possibleChains = new GeneralTree<>(srcChain);
-        if (checkIfQueen(player, realSrc))
-        {
+        if (checkIfQueen(player, realSrc)) {
             // TODO - remove queen before building tree, remove players that were eaten
             long rivalPosition = Position.findMiddle(realSrc, srcChain);  // finds the position of the eaten rival's piece
             boolean rivalQueenEaten = Model.checkIfQueen(this.getRival(), rivalPosition);
             this.removePiece(player, realSrc);
-            this.removePiece(this.getRival(), rivalPosition);
+            this.removePiece(this.getRival(player), rivalPosition);
             this.buildChainQueenPiece(possibleChains, player, srcChain);
             this.placePiece(this.getRival(), rivalPosition, rivalQueenEaten);
             this.placePiece(player, realSrc, true);
-        }
-        else {
+        } else {
             this.buildChainRegularPiece(possibleChains, player, srcChain);
         }
         return possibleChains;
     }
 
-    public GeneralTree<Long> chain(LogicalPlayer player, long srcChain, long realSrc)
-    {
+    public GeneralTree<Long> chain(LogicalPlayer player, long srcChain, long realSrc) {
         // checks if there is a chain. return the chain / null
         GeneralTree<Long> chain = this.getPossibleChains(player, srcChain, realSrc);
         chain = (chain.isLeaf()) ? null : chain;  // if the chain contains only the src - return null
         return chain;
     }
 
-    public boolean validEatingMove(LogicalPlayer player, long src, long dest)
-    {
+    public boolean validEatingMove(LogicalPlayer player, long src, long dest, boolean isQueen) {
         // returns true if the eating move is valid
-        boolean queen = ((player.getQueenBoard() & src) != 0);  // is it a queen?
+        /*
+        1. generate matching destination eating mask
+        2. validMove <- check if dest is in the mask
+        3. checkPossibleRival <- check if rival in the middle between src and dest
+        4. return validMove && checkPossibleRival
+         */
 
-        // gets rival's player object
-        LogicalPlayer rival = this.getRival();
-        long rivalPieces = rival.getPieceBoard();
-        long rivalQueens = rival.getQueenBoard();
+        boolean validMove;
 
-        // checks if destination is empty
-        boolean emptyDestination = this.emptyPosition(dest);
+        long possibleDestinations = BitboardEssentials.getPossibleEatingDestinations(src, player.isDark(), isQueen, false);
 
+        // check if destination lands on a valid eating destination && no piece found in dest
+        validMove = ((possibleDestinations & dest) != 0) && emptyPosition(dest);
 
-        long maybeRival = Position.findMiddle(src, dest);
+        // looks if there is a rival piece between src and dst
+        boolean checkRivalExistence = this.checkRivalInTheMiddle(src, dest);
 
-        // destination check masks
-        long maskDark1 = dest << (BitboardEssentials.VALID_EATING_STEP1);  // moves destination one way towards the src  (up)
-        long maskDark2 = dest << (BitboardEssentials.VALID_EATING_STEP2);  // moves destination one way towards the src  (up)
-        long maskLight1 = dest >> (BitboardEssentials.VALID_EATING_STEP1);  // moves destination one way towards the src  (down)
-        long maskLight2 = dest >> (BitboardEssentials.VALID_EATING_STEP2);  // moves destination one way towards the src  (down)
-
-        emptyDestination = emptyDestination && (((maskLight1 & src) != 0) || ((maskLight2 & src) != 0) || ((maskDark1 & src) != 0) || ((maskDark2 & src) != 0));
-
-        // rival's existence check
-        long rivalMaskDark1 = dest << (BitboardEssentials.VALID_STEP1);  // moves destination one way towards the src  (up)
-        long rivalMaskDark2 = dest << (BitboardEssentials.VALID_STEP2);  // moves destination one way towards the src  (up)
-        long rivalMaskLight1 = dest >> (BitboardEssentials.VALID_STEP1);  // moves destination one way towards the src  (down)
-        long rivalMaskLight2 = dest >> (BitboardEssentials.VALID_STEP2);  // moves destination one way towards the src  (down)
-
-        boolean trueMove = emptyDestination;
-
-        if (emptyDestination && !queen)  // if a regular piece + destination is empty
-        {
-            // sets trueMove true if:
-            //      dark -> the manipulation over dest has gotten to dest (forwards) + there is a light piece in the way
-            //      light -> the manipulation over dest has gotten to dest (backwards) + there is a dark piece in the way
-            if (player.isDark())
-            {
-                emptyDestination = ((maskDark1 & src) != 0) || ((maskDark2 & src) != 0);
-                // checks if there is a piece (regular / queen) in the way
-                trueMove = this.checkRivalInTheMiddle(src, dest);
-            }
-            else
-            {
-                emptyDestination = ((maskLight1 & src) != 0) || ((maskLight2 & src) != 0);
-                // checks if there is a piece (regular / queen) in the way
-                trueMove = ((rivalMaskLight1 & rivalPieces) != 0) || ((rivalMaskLight2 & rivalPieces) != 0) || ((rivalMaskLight1 & rivalQueens) != 0) || ((rivalMaskLight2 & rivalQueens) != 0);
-            }
-        }
-
-        if (queen)  // if a queen piece
-        {
-            // if any of the ones surrounding the queen is the chosen one
-
-
-            // sets trueMove true if:
-            //      dark -> the manipulation over dest has gotten to dest (forwards) + there is a light piece in the way
-            //      light -> the manipulation over dest has gotten to dest (backwards) + there is a dark piece in the way
-            if (emptyDestination)
-            {
-                trueMove = this.checkRivalInTheMiddle(src, dest);
-            }
-        }
-        return trueMove;
+        return checkRivalExistence && validMove;
     }
 
-    public LogicalPlayer getRival()
-    {
+    public LogicalPlayer getRival() {
         // returns rival player to current turn
         LogicalPlayer rival = (this.currentTurn == this.player1) ? this.player2 : this.player1;
         return rival;
     }
 
-    public void removePiece(LogicalPlayer player, long position)
-    {
+    public void removePiece(LogicalPlayer player, long position) {
         // removes piece from piece board
-        long opPosition = ~ position;
+        long opPosition = ~position;
         long maskPiece = player.getPieceBoard() & opPosition;
         long maskQueen = player.getQueenBoard() & opPosition;
         player.setPieceBoard(maskPiece);
         player.setQueenBoard(maskQueen);
     }
 
-    public void placePiece(LogicalPlayer player, long position, boolean queen)
-    {
+    public void placePiece(LogicalPlayer player, long position, boolean queen) {
         // places the piece at the right board
-        if (queen)
-        {
+        if (queen) {
             player.setQueenBoard(player.getQueenBoard() | position);  // adds the queen in the queen board
-        }
-        else
-        {
+        } else {
             player.setPieceBoard(player.getPieceBoard() | position);  // adds the piece in the piece board
         }
     }
 
-    public boolean emptyPosition(long position)
-    {
+    public boolean emptyPosition(long position) {
         // returns true if no other piece is in this position
         boolean piece1, piece2, queen1, queen2;
         piece1 = ((position & this.player1.getPieceBoard()) == 0);
@@ -394,8 +218,7 @@ public class Model implements IModel{
         return piece1 && piece2 && queen1 && queen2;
     }
 
-    public void updateBoards(LogicalPlayer player, long src, long dest)
-    {
+    public void updateBoards(LogicalPlayer player, long src, long dest) {
         // moves and updates boards according to move
         boolean queen = ((player.getQueenBoard() & src) != 0);  // is it a queen?
 
@@ -405,21 +228,19 @@ public class Model implements IModel{
             /* updates destination piece */
             long check1 = player.getQueenBoard() | dest;  // this OR dest
             /* deletes source piece */
-            long oppositeSrc = ~ src;  // NOT src
+            long oppositeSrc = ~src;  // NOT src
             player.setQueenBoard(check1 & oppositeSrc);  // final AND NOT src
-        }
-        else {  // move piece in piece board
+        } else {  // move piece in piece board
             /* updates destination piece */
             long check1 = player.getPieceBoard() | dest;  // this OR dest
             /* deletes source piece */
-            long oppositeSrc = ~ src;  // NOT src
+            long oppositeSrc = ~src;  // NOT src
             player.setPieceBoard(check1 & oppositeSrc);  // final AND NOT src
         }
     }
 
     @Override
-    public void switchTurns()
-    {
+    public void switchTurns() {
         // switch turns
         this.currentTurn = (this.currentTurn.equals(this.player1)) ? this.player2 : this.player1;
     }
@@ -429,21 +250,17 @@ public class Model implements IModel{
     public long checkQueen(LogicalPlayer logicalPlayer, long dest) {
         // checks if current player made a queen
         long pos = 0;
-        if (logicalPlayer.isDark())
-        {
+        if (logicalPlayer.isDark()) {
             pos = (dest & BitboardEssentials.DARK_QUEEN);
-        }
-        else
-        {
+        } else {
             pos = (dest & BitboardEssentials.LIGHT_QUEEN);
         }
         return pos;
     }
 
-    public void moveFromPieceToQueen(LogicalPlayer player, long position)
-    {
+    public void moveFromPieceToQueen(LogicalPlayer player, long position) {
         // moves position into queen board
-        long removePieceMask = ~ position;
+        long removePieceMask = ~position;
         player.setQueenBoard(player.getQueenBoard() | position);
         player.setPieceBoard(player.getPieceBoard() & removePieceMask);
     }
@@ -452,8 +269,7 @@ public class Model implements IModel{
         return this.currentTurn;
     }
 
-    public LogicalPlayer getPlayerFromId(int id)
-    {
+    public LogicalPlayer getPlayerFromId(int id) {
         // returns the right player according to his id
         LogicalPlayer logicalPlayer = (id == 1) ? this.player1 : this.player2;
         return logicalPlayer;
@@ -464,37 +280,25 @@ public class Model implements IModel{
         return rival;
     }
 
-    public void printBoard()
-    {
+    public void printBoard() {
         long board1 = this.player1.getPieceBoard(), board2 = this.player2.getPieceBoard();
         long queen1 = this.player1.getQueenBoard(), queen2 = this.player2.getQueenBoard();
         // prints board nicely to track moves
-        for (int i = 0 ; i < VisualBoard.getDimension() * VisualBoard.getDimension() ; i++)
-        {
+        for (int i = 0; i < VisualBoard.getDimension() * VisualBoard.getDimension(); i++) {
             // assumes that 2 pieces can't be at the same position
-            if (board1 % 2 != 0)
-            {
+            if (board1 % 2 != 0) {
                 System.out.print("1\t");
-            }
-            else if (board2 % 2 != 0)
-            {
+            } else if (board2 % 2 != 0) {
                 System.out.print("2\t");
-            }
-            else if (queen1 % 2 != 0)
-            {
+            } else if (queen1 % 2 != 0) {
                 System.out.print("!\t");
-            }
-            else if (queen2 % 2 != 0)
-            {
+            } else if (queen2 % 2 != 0) {
                 System.out.print("@\t");
-            }
-            else
-            {
-                System.out.print((char)0xB7 + "\t");
+            } else {
+                System.out.print((char) 0xB7 + "\t");
             }
             // goes down one row
-            if ((i + 1) % VisualBoard.getDimension() == 0)
-            {
+            if ((i + 1) % VisualBoard.getDimension() == 0) {
                 System.out.println();
             }
             board1 = board1 >> 1;
@@ -505,42 +309,42 @@ public class Model implements IModel{
         System.out.println("\n\n");
     }
 
-    public int checkWin()
-    {
+    public int checkWin() {
         // returns (+) - won, (-) - lost, (0) - no one won
         boolean check1 = (this.player1.getPieceBoard() == 0 && this.player1.getQueenBoard() == 0);
         boolean check2 = (this.player2.getPieceBoard() == 0 && this.player2.getQueenBoard() == 0);
         int won = 0;
-        if (check1)
-        {
+        if (check1) {
             won = -1;
         }
-        if (check2)
-        {
+        if (check2) {
             won = 1;
         }
         return won;
     }
 
-    public void printAdjacentBoard()
-    {
+    public void printAdjacentBoard() {
         // prints adjacent board nicely
         long a1 = this.player1.getAdjacentToRival(), a2 = this.player2.getAdjacentToRival();
-        for (int i = 0 ; i < VisualBoard.getDimension() * VisualBoard.getDimension() ; i++) {
+        long p1 = this.player1.getPieceBoard() | this.player1.getQueenBoard();
+        long p2 = this.player2.getPieceBoard() | this.player2.getQueenBoard();
+        for (int i = 0; i < VisualBoard.getDimension() * VisualBoard.getDimension(); i++) {
             if (a1 % 2 != 0) {
                 System.out.print("1\t");
-            }
-            else if (a2 % 2 != 0) {
+            } else if (a2 % 2 != 0) {
                 System.out.print("2\t");
-            }
-            else {
-                System.out.print((char)0xB7 + "\t");
+            } else if (p1 % 2 == 0 && p2 % 2 == 0) {
+                System.out.print((char) 0xB7 + "\t");
+            } else {
+                System.out.print((char) 0x25CB + "\t");
             }
             if ((i + 1) % VisualBoard.getDimension() == 0) {
                 System.out.println();
             }
             a1 >>= 1;
             a2 >>= 1;
+            p1 >>= 1;
+            p2 >>= 1;
         }
         System.out.print("\n\n");
     }
@@ -561,11 +365,11 @@ public class Model implements IModel{
         long curAdjacent;  // each rival's adjacent mask
         int index;  // the index in the bitboard
         long pos;  // the actual number in the bitboard - ex. (index = 8  -->  pos = 256)
-        for (int i = 0 ; i < 4 && adjacentMask > 0; i++) {  // max adjacent pieces is 4
+        for (int i = 0; i < 4 && adjacentMask > 0; i++) {  // max adjacent pieces is 4
             index = (int) BitboardEssentials.log2(adjacentMask);  // get index
             pos = 1l << index;  // convert to position on bitboard
             curAdjacent = BitboardEssentials.getCorners(pos, BitboardEssentials.ADJACENT_DIAMETER);
-            curAdjacent &= ~ src;  // remove src from adjacent mask
+            curAdjacent &= ~src;  // remove src from adjacent mask
             curAdjacent &= (rival.getQueenBoard() | rival.getPieceBoard());
 
             // if the adjacent mask is 0 --> the piece is exclusively adjacent to src -> add to mask
@@ -576,7 +380,6 @@ public class Model implements IModel{
         }
         return finalMask;
     }
-
 
 
     public void removeAdjacentFromSource(long src) {
@@ -604,30 +407,35 @@ public class Model implements IModel{
 
         // returns a new mask containing only the pieces that are exclusively adjacent to source
         adjacentMaskSrc = this.validateAdjacency(src, this.getRival(), adjacentMaskSrc);
-        rival.setAdjacentToRival(rival.getAdjacentToRival() & (~ adjacentMaskSrc));  // remove all exclusively adjacent pieces from rival's adjacent board
+        rival.setAdjacentToRival(rival.getAdjacentToRival() & (~adjacentMaskSrc));  // remove all exclusively adjacent pieces from rival's adjacent board
         // remove src from current player's adjacency bitboard
         cur.setAdjacentToRival(cur.getAdjacentToRival() & ~src);
     }
 
-    public void addAdjacentInDestination(long dest) {
+    public void addAdjacentInDestination(LogicalPlayer player, long dest, boolean isQueen) {
         // adds new adjacent pieces according to destination
-        LogicalPlayer cur = this.getCurrentTurn();
-        LogicalPlayer rival = this.getRival();
+        LogicalPlayer cur = player;
+        LogicalPlayer rival = this.getRival(player);
 
-        long checkQueenAdjacent = BitboardEssentials.getAdjacentMask(dest, cur.isDark(), Model.checkIfQueen(cur, dest), true);  // check if update is needed backwards
+        long checkQueenAdjacent = BitboardEssentials.getAdjacentMask(dest, cur.isDark(), isQueen, true);  // check if update is needed backwards
         checkQueenAdjacent &= rival.getQueenBoard();
         // update queens on the back if needed
-        rival.setAdjacentToRival(rival.getAdjacentToRival() | checkQueenAdjacent);
+        if (checkQueenAdjacent != 0) rival.setAdjacentToRival(rival.getAdjacentToRival() | checkQueenAdjacent);
 
         // get adjacent mask according to piece
-        long adjacentMaskDest = BitboardEssentials.getAdjacentMask(dest, cur.isDark(), Model.checkIfQueen(cur, dest), false);
-        long rivalAdjacent = (rival.getPieceBoard() | rival.getQueenBoard()) & adjacentMaskDest;
-        if (rivalAdjacent != 0) {
+        long adjacentMaskDest = BitboardEssentials.getAdjacentMask(dest, cur.isDark(), isQueen, false);
+        long rivalPiecesAdjacent = rival.getPieceBoard() & adjacentMaskDest;
+        long rivalQueenAdjacent = rival.getQueenBoard() & adjacentMaskDest;
+        if (rivalPiecesAdjacent != 0) {
             // update current player's piece as adjacent to rival
             cur.setAdjacentToRival(cur.getAdjacentToRival() | dest);
 
             // update adjacent rival pieces as adjacent
-            rival.setAdjacentToRival(rival.getAdjacentToRival() | rivalAdjacent);
+            long coAdjacentPieces = BitboardEssentials.validateForPlayer(dest, rivalPiecesAdjacent, player.isDark(), VisualBoard.getDimension());
+            rival.setAdjacentToRival(rival.getAdjacentToRival() | coAdjacentPieces);
+        }
+        if (rivalQueenAdjacent != 0) {
+            rival.setAdjacentToRival(rival.getAdjacentToRival() | rivalQueenAdjacent);
         }
     }
 
@@ -639,6 +447,76 @@ public class Model implements IModel{
         adjacentRivals = this.validateAdjacency(pos, this.getRival(player), adjacentRivals);
         rival.setAdjacentToRival(rival.getAdjacentToRival() & ~adjacentRivals);
         player.setAdjacentToRival(player.getAdjacentToRival() & ~pos);
+    }
+
+    public long getBlankTilesBoard() {
+        // returns a mask of all empty positions
+        return ~(this.player1.getPieceBoard() | this.player1.getQueenBoard() | this.player2.getPieceBoard() | this.player2.getQueenBoard());
+    }
+
+    public long getBlankAdjacent(long pos) {
+        // return a mask of all adjacent blank tiles for pos
+        long adjacent = BitboardEssentials.getCorners(pos, BitboardEssentials.ADJACENT_DIAMETER);
+        long blankAdjacent = adjacent & this.getBlankTilesBoard();
+        return blankAdjacent;
+    }
+
+    public long generateMustEatTilesAndPieces() {
+        // updates mustEat board for the current turn player. returns a mask of all tiles that can be chosen
+        /*
+        ALGORITHM:
+        1. take current player's adjacentToRivalBoard
+            (*) for each position:
+            1.1. generate a mask of all rival adjacent pieces
+                 (**) for each position:
+                 1.1.1. generate a mask of all blank tiles that are adjacent to the current position
+                    (***) for each blank tile:
+                    1.2.1 generate a mask of possible sources for eating to land on this position (corners with side of 5)
+                    1.2.2 check the common bits between major position (position of tab *)
+                        if not zero:
+                        1.2.2.1 add result to mustEat board of current player
+                        1.2.2.2 add position of tab (***) to finalTileMask
+         */
+        long finalTileMask = 0;
+        long curAdjacentToRival = this.currentTurn.getAdjacentToRival();
+        int indexCur = 0, indexRiv = 0, indexBlank = 0;
+        long positionInBitboardCur, positionInBitboardRival, positionInBitboardBlank;
+        long rivalAdjacentPieces;
+        long blanks;
+        LogicalPlayer cur = this.currentTurn;
+        LogicalPlayer riv = this.getRival();
+        cur.setMustEatPieces(0);
+
+        // each potential eat move - source
+        while (curAdjacentToRival > 0) {
+            indexCur = (int) BitboardEssentials.log2(curAdjacentToRival);
+            positionInBitboardCur = 1L << indexCur;
+            rivalAdjacentPieces = BitboardEssentials.getAdjacentMask(positionInBitboardCur, cur.isDark(), Model.checkIfQueen(cur, positionInBitboardCur), false) & (riv.getTotalBoard());
+
+            // each position of eatable piece
+            for (int i = 0; i < 4 && rivalAdjacentPieces > 0; i++) {
+                indexRiv = (int) BitboardEssentials.log2(rivalAdjacentPieces);
+                positionInBitboardRival = 1L << indexRiv;
+                // generate blank mask according to the eater - not the eaten
+                blanks = BitboardEssentials.getAdjacentMask(positionInBitboardRival, riv.isDark(), Model.checkIfQueen(cur, positionInBitboardCur), true) & this.getBlankTilesBoard();
+
+                // each adjacent blank tile
+                for (int j = 0; j < 4 && blanks > 0; i++) {
+                    indexBlank = (int) BitboardEssentials.log2(blanks);
+                    positionInBitboardBlank = 1L << indexBlank;
+                    long possibleSources = BitboardEssentials.getCorners(positionInBitboardBlank, BitboardEssentials.CHECK_EAT_DIAMETER);
+                    long sources = possibleSources & positionInBitboardCur;
+                    if (sources != 0) {
+                        cur.setMustEatPieces(cur.getMustEatPieces() | positionInBitboardCur);
+                        finalTileMask |= positionInBitboardBlank;
+                    }
+                    blanks -= positionInBitboardBlank;
+                }
+                rivalAdjacentPieces -= positionInBitboardRival;
+            }
+            curAdjacentToRival -= positionInBitboardCur;
+        }
+        return finalTileMask;
     }
 }
 

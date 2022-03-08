@@ -1,5 +1,6 @@
 package com.example.checkers;
 
+import javafx.animation.FillTransition;
 import javafx.animation.Interpolator;
 import javafx.animation.ScaleTransition;
 import javafx.animation.TranslateTransition;
@@ -35,7 +36,7 @@ public class Piece extends Circle {
     protected IPresenter presenter;
     protected boolean dark;  // if the piece is dark or light
     protected VisualPlayer owner;  // the owner of the piece
-    protected static boolean suggestionMode = false;  // if in an eating chain, no other tiles can be clicked
+    protected static boolean suggestionMode = false;  // if in an eating chain, no other pieces can be clicked
     protected PieceMode pieceMode;  // for animation - do different thing according to type of piece
 
     // PROJECT PATH (FOR IMAGES IMPORTED)
@@ -62,6 +63,10 @@ public class Piece extends Circle {
     private static final ImagePattern LIGHT_QUEEN = new ImagePattern(new Image(PROJECT_PATH + "\\light-QUEEN.png"));
     private static final ImagePattern DARK_QUEEN_DARKER = new ImagePattern(new Image(PROJECT_PATH + "\\dark-QUEEN-darker.png"));
     private static final ImagePattern LIGHT_QUEEN_DARKER = new ImagePattern(new Image(PROJECT_PATH + "\\light-QUEEN-darker.png"));
+    private static final ImagePattern DARK_QUEEN_MARKED = new ImagePattern(new Image(PROJECT_PATH + "\\dark-QUEEN-marked.png"));
+    private static final ImagePattern LIGHT_QUEEN_MARKED = new ImagePattern(new Image(PROJECT_PATH + "\\light-QUEEN-marked.png"));
+    private static final ImagePattern DARK_QUEEN_MARKED_DARKER = new ImagePattern(new Image(PROJECT_PATH + "\\dark-QUEEN-marked-darker.png"));
+    private static final ImagePattern LIGHT_QUEEN_MARKED_DARKER = new ImagePattern(new Image(PROJECT_PATH + "\\light-QUEEN-marked-darker.png"));
 
 
     public Piece(short x, short y, boolean dark, History history, IPresenter presenter, VisualPlayer visualPlayer)
@@ -94,9 +99,23 @@ public class Piece extends Circle {
                         if (!history.isEmpty()) {
                             Piece p = (Piece) history.pop();
                             p.undoExpand();
+                            history.emptyHistory();
                         }
                         changeOnClick();
                         history.push(getCurrent());
+                    }
+                }
+                else {
+                    if (pieceMode == PieceMode.MARKED || pieceMode == PieceMode.MARKED_QUEEN) {  // only marked pieces can be clicked
+                        if (owner.isMyTurn()) {
+                            if (!history.isEmpty()) {
+                                Piece p = (Piece) history.pop();
+                                p.undoExpand();
+                                history.emptyHistory();
+                            }
+                            changeOnClick();
+                            history.push(getCurrent());
+                        }
                     }
                 }
             }
@@ -130,6 +149,19 @@ public class Piece extends Circle {
                         history.push(getCurrent());
                     }
                 }
+                else {
+                    if (pieceMode == PieceMode.MARKED) {  // only marked pieces can be clicked
+                        if (owner.isMyTurn()) {
+                            if (!history.isEmpty()) {
+                                Piece p = (Piece) history.pop();
+                                p.undoExpand();
+                                history.emptyHistory();
+                            }
+                            changeOnClick();
+                            history.push(getCurrent());
+                        }
+                    }
+                }
             }
         });
     }
@@ -145,6 +177,7 @@ public class Piece extends Circle {
         if (this.pieceMode == PieceMode.REGULAR) this.color = (this.dark) ? DARK_PIECE : LIGHT_PIECE;
         if (this.pieceMode == PieceMode.MARKED) this.color = (this.dark) ? DARK_MARKED : LIGHT_MARKED;
         if (this.pieceMode == PieceMode.QUEEN) this.color = (this.dark) ? DARK_QUEEN : LIGHT_QUEEN;
+        if (this.pieceMode == PieceMode.MARKED_QUEEN) this.color = (this.dark) ? DARK_QUEEN_MARKED : LIGHT_QUEEN_MARKED;
         this.setFill(this.color);
         this.setEffect(d);
         scaleTransition.play();
@@ -295,10 +328,39 @@ public class Piece extends Circle {
         if (this.pieceMode == PieceMode.REGULAR) this.color = (this.dark) ? DARK_PIECE_DARKER : LIGHT_PIECE_DARKER;
         if (this.pieceMode == PieceMode.MARKED) this.color = (this.dark) ? DARK_MARKED_DARKER : LIGHT_MARKED_DARKER;
         if (this.pieceMode == PieceMode.QUEEN) this.color = (this.dark) ? DARK_QUEEN_DARKER : LIGHT_QUEEN_DARKER;
+        if (this.pieceMode == PieceMode.MARKED_QUEEN) this.color = (this.dark) ? DARK_QUEEN_MARKED_DARKER : LIGHT_QUEEN_MARKED_DARKER;
         this.setFill(this.color);
         DropShadow d = new DropShadow(SHADOW_RADIUS * 1.25, Color.BLACK);
         setEffect(d);
         scaleTransition.play();
+    }
+
+    public void markAsMustEat() {
+        // changes piece's background to match must eat marking
+        this.pieceMode = (this.pieceMode == PieceMode.QUEEN) ? PieceMode.MARKED_QUEEN : PieceMode.MARKED;
+        ImagePattern newBackground;
+        if (this.pieceMode == PieceMode.MARKED_QUEEN) {
+            newBackground = (this.dark) ? DARK_QUEEN_MARKED : LIGHT_QUEEN_MARKED;
+        }
+        else {
+            newBackground = (this.dark) ? DARK_MARKED : LIGHT_MARKED;
+        }
+        this.setFill(newBackground);
+        // insert into owner's suggested pieces queue
+        this.owner.getSuggestedPieces().insert(this);
+    }
+
+    public void markAsRegular() {
+        // changes back the color, and sets mode to regular
+        this.pieceMode = (this.pieceMode == PieceMode.MARKED_QUEEN) ? PieceMode.QUEEN : PieceMode.REGULAR;
+        ImagePattern preBack;
+        if (this.pieceMode == PieceMode.QUEEN) {
+            preBack = (this.dark) ? DARK_QUEEN : LIGHT_QUEEN;
+        }
+        else {
+            preBack = (this.dark) ? DARK_PIECE : LIGHT_PIECE;
+        }
+        this.setFill(preBack);
     }
 }
 

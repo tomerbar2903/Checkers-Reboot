@@ -36,6 +36,9 @@ public interface IView{
     public void showOptions(ArrayList<Position> options);
 
     // hides possible paths in an eating chain that are already done
-    public void hideCurrentOptions(ArrayList<Position> options);
+    public void hideCurrentOptions();
+
+    // set pieces to be marked and view tiles as landing positions
+    public void setMarked(ArrayList<Position> pieces, ArrayList<Position> tiles);
 }
 

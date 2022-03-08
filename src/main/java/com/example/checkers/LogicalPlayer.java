@@ -78,5 +78,9 @@ public class LogicalPlayer {
         }
         System.out.println("\n\n");
     }
+
+    public long getTotalBoard() {
+        return this.pieceBoard | this.queenBoard;
+    }
 }
 

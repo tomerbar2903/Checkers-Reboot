@@ -13,12 +13,15 @@ public class VisualPlayer {
     private boolean me;
     private boolean myTurn;  // is my turn
 
+    private Queue<Piece> suggestedPieces;
+
     public VisualPlayer(History history) {
         this.history = history;
         this.pieces = new ArrayList<Piece>();
         this.id = ++VisualPlayer.counter;
-        this.me = VisualPlayer.playerCheck = !VisualPlayer.playerCheck;
+        this.me = VisualPlayer.playerCheck = !VisualPlayer.playerCheck;  // true = dark, false = light
         this.myTurn = true;
+        this.suggestedPieces = new Queue<Piece>();
     }
 
     public void setPresenter(IPresenter presenter)
@@ -82,6 +85,21 @@ public class VisualPlayer {
 
     public boolean isMe() {
         return me;
+    }
+
+    public Queue<Piece> getSuggestedPieces() {
+        return suggestedPieces;
+    }
+
+    public void setSuggestedPieces(Queue<Piece> suggestedPieces) {
+        this.suggestedPieces = suggestedPieces;
+    }
+
+    public void unmarkPieces() {
+        // makes all marked pieces regular again
+        while (!this.suggestedPieces.isEmpty()) {
+            this.suggestedPieces.remove().markAsRegular();
+        }
     }
 }
 

@@ -2,6 +2,8 @@ package com.example.checkers;
 
 import javafx.geometry.Pos;
 
+import java.util.ArrayList;
+
 public abstract class BitboardEssentials {
 
     // WHITE TILES MASK
@@ -28,6 +30,8 @@ public abstract class BitboardEssentials {
 
     public static final int ADJACENT_DIAMETER = 3;
     public static final int CHECK_EAT_DIAMETER = 5;
+
+    public static final long SPECIAL_POSITION = 4611686018427387904l;
 
     // POSITION CALCULATORS
     public static long getMaxLeft(long position, int maxSideMove) {
@@ -181,7 +185,7 @@ public abstract class BitboardEssentials {
             index of bottom minus index of right. Divide by dimension (cast to int), add 1. Multiply by dimension
          */
         long bottomRight = right << ((int) (((log2(bottom) - log2(right))) / boardSize + 1) * boardSize);
-        bottomRight = (bottomRight > 0) ? bottomRight : (-1) * (bottomRight >> 1);
+        bottomRight = (bottomRight < 0) ? (SPECIAL_POSITION) : bottomRight;
         return bottomRight;
     }
 
@@ -200,12 +204,14 @@ public abstract class BitboardEssentials {
             index of bottom minus index of left. Divide by dimension (cast to int). Multiply by dimension
          */
         // x(left) y(bottom)
+        bottom = (bottom < 0) ? (Position.positionToLogicalNumber(new Position((short) 6, (short) 7))) : bottom;
         long bottomLeft = left << ((int) (((log2(bottom) - log2(left))) / boardSize) * boardSize);
         return bottomLeft;
     }
 
     public static long getBottomLeft(long bottom, long left, int boardSize) {
         // x(left) y(bottom) (if both arent 0)
+        bottom = (bottom < 0) ? (SPECIAL_POSITION) : bottom;
         long bottomLeft = 0;
         if (bottom != 0 && left != 0) {
             bottomLeft = getMaxBottomLeft(bottom, left, boardSize);
@@ -219,7 +225,11 @@ public abstract class BitboardEssentials {
             index of right minus index of top. Divide by dimension (cast to int). Multiply by dimension
          */
         // x(right) y(top)
-        long topRight = right >> ((int) (((log2(right) - log2(top))) / boardSize) * boardSize);
+        long newRight = (right > 0) ? right : SPECIAL_POSITION;
+        long topRight = newRight >> ((int) (((log2(newRight) - log2(top))) / boardSize) * boardSize);
+        if (right < 0) {
+            topRight <<= 1;
+        }
         return topRight;
     }
 
@@ -477,5 +487,21 @@ public abstract class BitboardEssentials {
         long bottomRight = getMaxBottomRight(bottom, right, boardSize);
         
         return topLeft | topRight | bottomLeft | bottomRight;
+    }
+
+    public static void printBoard(long board) {
+        for (int i = 1 ; i <= VisualBoard.getDimension() * VisualBoard.getDimension() ; i++) {
+            if (board % 2 != 0) {
+                System.out.print((char) 0x25CF + "\t");
+            }
+            else {
+                System.out.print((char) 0x25CC + "\t");
+            }
+            if (i % VisualBoard.getDimension() == 0) {
+                System.out.println();
+            }
+            board >>= 1;
+        }
+        System.out.println("\n\n");
     }
 }

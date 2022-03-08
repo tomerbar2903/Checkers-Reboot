@@ -93,6 +93,19 @@ public class GeneralTree<E> {
         this.sons[3] = son;
     }
 
+    public void put(GeneralTree info, int index) {
+        // puts info inside the array at index
+        if (index < POSSIBLE_MOVES)
+            this.sons[index] = info;
+    }
+
+    public GeneralTree get(int index) {
+        // returns the son at index
+        GeneralTree son = null;
+        if (index < 4) son = this.sons[index];
+        return son;
+    }
+
     public boolean isLeaf()
     {
         return (this.sons[0] == null && this.sons[1] == null && this.sons[2] == null && this.sons[3] == null);

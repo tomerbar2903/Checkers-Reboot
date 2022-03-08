@@ -137,13 +137,13 @@ public class View extends Application implements IView {
         Piece.setSuggestionMode(true);  // no piece can be clicked
         for (int i = 0; i < options.size(); i++) {
             Position position = options.get(i);
-            this.board.getGameBoard()[position.getX()][position.getY()].showAsOption();
+            this.board.getGameBoard()[position.getX()][position.getY()].showAsOption(TileState.CHAIN);
         }
     }
 
     @Override
-    public void hideCurrentOptions(ArrayList<Position> options) {
-        // make tiles regular again, set modes to true - no suggesting anymore
+    public void hideCurrentOptions() {
+        // make tiles regular again, set modes to true - no suggesting any more
         // tiles and pieces can be clicked again
         Tile.setSuggestionMode(false);
         Piece.setSuggestionMode(false);
@@ -256,6 +256,19 @@ public class View extends Application implements IView {
         return null;
     }
 
+    @Override
+    public void setMarked(ArrayList<Position> pieces, ArrayList<Position> tiles) {
+        // sets all pieces to marked
+        Tile.setSuggestionMode(true);
+        Piece.setSuggestionMode(true);  // no piece can be clicked, but the marked ones
+        for (Position p: pieces) {
+            Piece piece = searchPiece(p);
+            piece.markAsMustEat();
+        }
+        for (Position p: tiles) {
+            this.board.getGameBoard()[p.getX()][p.getY()].showAsOption(TileState.OPTION);
+        }
+    }
 
     @Override
     public void start(Stage stage) {
