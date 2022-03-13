@@ -29,7 +29,12 @@ public class VisualPlayer {
         this.presenter = presenter;
     }
 
-    public void InitiatePiecePosition()
+    public void exchangeColors(VisualPlayer player) {
+        this.me = !this.me;
+        player.me = !player.me;
+    }
+
+    public void initiatePiecePosition()
     {
         if (this.me)
         {

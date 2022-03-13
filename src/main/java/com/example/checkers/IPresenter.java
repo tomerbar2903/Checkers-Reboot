@@ -23,5 +23,7 @@ public interface IPresenter {
     public boolean validMove(VisualPlayer player, Position src, Position dest);
 
     public boolean validEatingMove(VisualPlayer player, Position src, Position dest);
+
+    public void setMeAsFirstTurn();
 }
 

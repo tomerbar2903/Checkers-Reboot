@@ -23,15 +23,16 @@ public class TransitionHandler extends Thread{
         this.delay = 0;
     }
 
-    public void kill()
+    public synchronized void kill()
     {
         this.run = false;
+        this.notify();
     }
 
     public synchronized void insert(Transition transition)
     {
         this.transitionQueue.insert(transition);
-        notify();
+        this.notify();
     }
 
     public synchronized Transition remove()
@@ -47,7 +48,7 @@ public class TransitionHandler extends Thread{
             @Override
             public void handle(ActionEvent actionEvent) {
                 animationRunning = false;
-                notify();
+                this.notify();
             }
         });
     }
@@ -65,7 +66,7 @@ public class TransitionHandler extends Thread{
             if (this.transitionQueue.isEmpty()) {
                 this.delay = 0;
                 try {
-                    wait();
+                    this.wait();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }

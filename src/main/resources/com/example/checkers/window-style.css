@@ -1,0 +1,21 @@
+.button {
+    -fx-background-color: #645651;
+    -fx-text-fill: #e8e8e8;
+    -fx-padding: 5;
+    -fx-label-padding: 10;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-font-family: Dubai;
+    -fx-font-weight: 600;
+    -fx-font-size: 20px;
+}
+
+.backgroundPane {
+    -fx-background-color: #f8f1e6;
+}
+
+.text {
+    -fx-text-fill: #383838;
+    -fx-font-family: "Dubai Light";
+    -fx-font-size: 20px;
+}

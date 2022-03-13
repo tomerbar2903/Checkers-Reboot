@@ -9,7 +9,7 @@ public class BitMove {
 
     public BitMove() {
         this.source = 0;
-        this.dest = 0;
+        this.destination = 0;
     }
 
     public BitMove(long src, long dest) {

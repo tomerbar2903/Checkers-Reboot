@@ -5,6 +5,7 @@ public class Model implements IModel {
     private LogicalPlayer player1;
     private LogicalPlayer player2;
     private LogicalPlayer currentTurn;
+    private boolean turnAI;
 
     public enum AdjacencyType {TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, NOT_ADJACENT}
 
@@ -13,6 +14,11 @@ public class Model implements IModel {
         this.player2 = new LogicalPlayer();
         this.currentTurn = this.player2;
         this.printBoard();
+        this.turnAI = true;
+    }
+
+    public void setCurrentTurn(LogicalPlayer currentTurn) {
+        this.currentTurn = currentTurn;
     }
 
     public static boolean checkIfQueen(LogicalPlayer player, long pos) {
@@ -238,6 +244,7 @@ public class Model implements IModel {
     public void switchTurns() {
         // switch turns
         this.currentTurn = (this.currentTurn.equals(this.player1)) ? this.player2 : this.player1;
+        this.turnAI = !this.turnAI;
     }
 
 

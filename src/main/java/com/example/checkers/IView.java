@@ -2,6 +2,7 @@ package com.example.checkers;
 
 import javafx.animation.Transition;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 public interface IView{
@@ -15,7 +16,7 @@ public interface IView{
     public void makeQueen(Position queenPosition);
 
     // shows board on screen
-    public void presentBoard();
+    public void presentBoard() throws IOException;
 
     // presents win message
     public void winMessage();

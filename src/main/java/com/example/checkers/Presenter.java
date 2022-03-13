@@ -19,6 +19,11 @@ public class Presenter implements IPresenter{
         this.currentChain = null;
     }
 
+    public void setMeAsFirstTurn() {
+        LogicalPlayer me = (this.model.getCurrentTurn().isDark()) ? this.model.getCurrentTurn() : this.model.getRival();
+        this.model.setCurrentTurn(me);
+    }
+
     public void setGameView(IView v)
     {
         this.gameView = v;
@@ -81,6 +86,10 @@ public class Presenter implements IPresenter{
             this.gameView.loseMessage();
         }
         this.handleMustEat();
+    }
+
+    public void generateMoveAI() {
+
     }
 
     public void handleMustEat() {

@@ -1,29 +1,18 @@
 package com.example.checkers;
 
-import javafx.animation.Interpolator;
 import javafx.animation.ScaleTransition;
-import javafx.animation.Transition;
 import javafx.animation.TranslateTransition;
 import javafx.application.Application;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
-import javafx.event.EventType;
-import javafx.geometry.HPos;
-import javafx.geometry.Pos;
-import javafx.geometry.VPos;
+import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
 import javafx.scene.image.Image;
-import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.Pane;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 import javafx.util.Duration;
 
 import java.io.IOException;
-import java.util.PriorityQueue;
-import java.util.Scanner;
 import java.util.ArrayList;
 
 public class View extends Application implements IView {
@@ -48,6 +37,13 @@ public class View extends Application implements IView {
         this.currentTurn = this.visualPlayer2;
         this.visualPlayer1.setMyTurn(false);
         this.transitionHandler = new TransitionHandler();
+    }
+
+    public void setMeAsFirstTurn() {
+        this.visualPlayer1.setMyTurn(true);
+        this.currentTurn = this.visualPlayer1;
+        this.visualPlayer2.setMyTurn(false);
+        this.presenter.setMeAsFirstTurn();
     }
 
     public void setPresenter(IPresenter presenter) {
@@ -79,8 +75,8 @@ public class View extends Application implements IView {
 
     public void assignPiecesToPlayers() {
         // assigns all relevant pieces
-        this.visualPlayer1.InitiatePiecePosition();
-        this.visualPlayer2.InitiatePiecePosition();
+        this.visualPlayer1.initiatePiecePosition();
+        this.visualPlayer2.initiatePiecePosition();
     }
 
     @Override
@@ -232,7 +228,7 @@ public class View extends Application implements IView {
     }
 
     @Override
-    public void presentBoard() {
+    public void presentBoard() throws IOException {
         Stage stage = new Stage();
         this.start(stage);
     }
@@ -271,12 +267,14 @@ public class View extends Application implements IView {
     }
 
     @Override
-    public void start(Stage stage) {
+    public void start(Stage stage) throws IOException {
+
         Presenter presenter = new Presenter();
         this.setPresenter(presenter);
         this.board.InitiateBoard();
         this.assignPiecesToPlayers();
         presenter.setGameView(this);
+        this.transitionHandler.start();
         for (int i = 0; i < VisualBoard.getDimension(); i++) {
             for (int j = 0; j < VisualBoard.getDimension(); j++) {
                 this.board.add(this.board.getGameBoard()[i][j], i, j);
@@ -284,19 +282,38 @@ public class View extends Application implements IView {
         }
         this.board.placePlayerPieces(this.board, this.visualPlayer1);
         this.board.placePlayerPieces(this.board, this.visualPlayer2);
-        Scene scene = new Scene(this.board);
-        stage.setTitle("Impossible Checkers");
-        stage.setScene(scene);
-        this.transitionHandler.start();
-        stage.setResizable(false);
-        stage.getIcons().add(new Image(ICON_PATH));
+        Stage stage1 = new Stage();
+        FXMLLoader loader = new FXMLLoader(View.class.getResource("opening-scene.fxml"));
+        Scene opening = new Scene(loader.load());
+        stage1.setScene(opening);
+        stage1.show();
+        stage1.setOnCloseRequest(new EventHandler<WindowEvent>() {
+            @Override
+            public void handle(WindowEvent windowEvent) {
+                stage1.close();
+                if (OpeningController.startClicked) {
+                    Scene scene = new Scene(board);
+                    stage.setTitle("Impossible Checkers");
+                    stage.setScene(scene);
+                    stage.setResizable(false);
+                    stage.getIcons().add(new Image(ICON_PATH));
+                    OpeningMetadata meFirst = (OpeningMetadata) stage1.getUserData();
+                    if (meFirst.isWantsToStart()) {
+                        setMeAsFirstTurn();
+                    }
+                    stage.show();
+                }
+                else {
+                    transitionHandler.kill();
+                }
+            }
+        });
         stage.setOnCloseRequest(new EventHandler<WindowEvent>() {
             @Override
             public void handle(WindowEvent windowEvent) {
                 transitionHandler.kill();
             }
         });
-        stage.show();
     }
 
     public static void main(String[] args) {
