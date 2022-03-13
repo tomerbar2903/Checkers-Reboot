@@ -27,11 +27,6 @@ public class Model implements IModel {
         return ((dest & adjacentTiles) != 0) && this.emptyPosition(dest);
     }
 
-    public static boolean checkOutOfBounds(long pos) {
-        // checks if a shift result puts the position in a white tile
-        return ((pos & BitboardEssentials.WHITE_TILES) == 0);
-    }
-
     public void buildChainRegularPiece(GeneralTree<Long> root, LogicalPlayer player, long src) {
         // return a tree of all possible eating moves from src.
         // get possible landing destinations after an eating move

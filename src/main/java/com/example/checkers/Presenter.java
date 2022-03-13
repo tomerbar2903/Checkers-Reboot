@@ -80,9 +80,6 @@ public class Presenter implements IPresenter{
         {
             this.gameView.loseMessage();
         }
-        this.model.printAdjacentBoard();
-        BitboardEssentials.printBoard(this.model.generateMustEatTilesAndPieces());
-        BitboardEssentials.printBoard(this.model.getCurrentTurn().getMustEatPieces());
         this.handleMustEat();
     }
 
