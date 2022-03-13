@@ -15,7 +15,7 @@
          </font>
       </Text>
       <Button fx:id="start" layoutX="266.0" layoutY="259.0" mnemonicParsing="false" onAction="#onStart" stylesheets="@window-style.css" text="start" />
-      <Label layoutX="225.0" layoutY="175.0" prefHeight="34.0" prefWidth="180.0" styleClass="text" stylesheets="@window-style.css" text="Play The First Turn" />
+      <Label layoutX="225.0" layoutY="175.0" onMouseClicked="#onLabel" prefHeight="34.0" prefWidth="180.0" styleClass="text" stylesheets="@window-style.css" text="Play The First Turn" />
       <CheckBox fx:id="firstTurn" layoutX="196.0" layoutY="175.0" mnemonicParsing="false" prefHeight="22.0" prefWidth="21.0" />
    </children>
 </Pane>

@@ -34,6 +34,17 @@ public class OpeningController implements Initializable {
         this.firstTurn.setSelected(false);
     }
 
+    @FXML
+    public void onLabel() {
+        if (this.firstTurn.isSelected()) {
+            this.firstTurn.setSelected(false);
+        }
+        else {
+            this.firstTurn.setSelected(true);
+        }
+    }
+
+    @FXML
     public void onStart() {
         OpeningController.startClicked = true;
         OpeningMetadata transfer = new OpeningMetadata(this.firstTurn.isSelected());
