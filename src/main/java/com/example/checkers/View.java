@@ -27,6 +27,8 @@ public class View extends Application implements IView {
 
     private static final double QUEEN_TRANSITION_DURATION = 0.55;
     private static final String ICON_PATH = "C:\\Users\\tomer\\OneDrive\\Documents\\Hermelin\\Checkers\\src\\Logo.png";
+    private static final String WIN_MESSAGE = "YOU WON!";
+    private static final String LOSE_MESSAGE = "YOU LOST...";
 
     public View() {
         super();
@@ -234,17 +236,29 @@ public class View extends Application implements IView {
     }
 
     @Override
-    public void winMessage() {
+    public void winMessage() throws IOException {
         // adds winning message on the screen
-        Message win = new Message(true);
-        win.positionMessage(this.board);
+        Stage stage1 = new Stage();
+        FXMLLoader loader = new FXMLLoader(View.class.getResource("closing-scene.fxml"));
+        Scene closing = new Scene(loader.load());
+        ClosingController c = loader.getController();
+        c.setMessage(View.WIN_MESSAGE);
+        stage1.setScene(closing);
+        closing.setUserData(this.board.getScene().getWindow());
+        stage1.show();
     }
 
     @Override
-    public void loseMessage() {
+    public void loseMessage() throws IOException {
         // adds loosing message on the screen
-        Message lose = new Message(false);
-        lose.positionMessage(this.board);
+        Stage stage1 = new Stage();
+        FXMLLoader loader = new FXMLLoader(View.class.getResource("closing-scene.fxml"));
+        Scene closing = new Scene(loader.load());
+        ClosingController c = loader.getController();
+        c.setMessage(View.LOSE_MESSAGE);
+        stage1.setScene(closing);
+        closing.setUserData(this.board.getScene().getWindow());
+        stage1.show();
     }
 
     @Override
@@ -302,7 +316,11 @@ public class View extends Application implements IView {
                         setMeAsFirstTurn();
                     }
                     else {
-                        presenter.generateMoveAI(0);
+                        try {
+                            presenter.generateMoveAI(0);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                     }
                     stage.show();
                 }

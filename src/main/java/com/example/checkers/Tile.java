@@ -8,6 +8,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
 
+import java.io.IOException;
+
 public class Tile extends Rectangle{
 
     protected Color color;
@@ -63,7 +65,11 @@ public class Tile extends Rectangle{
                                     Tile.hideOptions();
                                     Tile.suggestionMode = false;
                                     Piece.setSuggestionMode(false);
-                                    presenter.sendMoveToCheck(src, dest, regularMoveCheck, eatingMoveCheck, false);
+                                    try {
+                                        presenter.sendMoveToCheck(src, dest, regularMoveCheck, eatingMoveCheck, false);
+                                    } catch (IOException e) {
+                                        e.printStackTrace();
+                                    }
                                     srcPiece.undoExpand();
                                 }
                                 else {
@@ -74,7 +80,11 @@ public class Tile extends Rectangle{
                         else {
                             if (regularMoveCheck || eatingMoveCheck) {
                                 srcPiece.undoExpand();
-                                presenter.sendMoveToCheck(src, dest, regularMoveCheck, eatingMoveCheck, false);
+                                try {
+                                    presenter.sendMoveToCheck(src, dest, regularMoveCheck, eatingMoveCheck, false);
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
                                 history.emptyHistory();
                             }
                             else {

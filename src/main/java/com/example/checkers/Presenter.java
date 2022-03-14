@@ -2,6 +2,7 @@ package com.example.checkers;
 
 import javafx.geometry.Pos;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 public class Presenter implements IPresenter{
@@ -30,7 +31,7 @@ public class Presenter implements IPresenter{
     }
 
     @Override
-    public void sendMoveToCheck(Position src, Position dest, boolean trueRegular, boolean trueEating, boolean isAiMove) {
+    public void sendMoveToCheck(Position src, Position dest, boolean trueRegular, boolean trueEating, boolean isAiMove) throws IOException {
 
         long srcLogic = Position.positionToLogicalNumber(src);
         long destLogic = Position.positionToLogicalNumber(dest);
@@ -94,7 +95,7 @@ public class Presenter implements IPresenter{
     }
 
     @Override
-    public void generateMoveAI(long mustEat) {
+    public void generateMoveAI(long mustEat) throws IOException {
         // generate AI move, and sends it to sendMoveToCheck
         BitMove ai = GamerAI.generateMove(this.model.getCurrentTurn(), this.model.getRival(), mustEat);
         BoardMove aiMove = null;
@@ -222,12 +223,12 @@ public class Presenter implements IPresenter{
     }
 
     @Override
-    public void winMessage() {
+    public void winMessage() throws IOException {
         this.gameView.winMessage();
     }
 
     @Override
-    public void loseMessage() {
+    public void loseMessage() throws IOException {
         this.gameView.loseMessage();
     }
 

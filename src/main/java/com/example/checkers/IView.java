@@ -19,10 +19,10 @@ public interface IView{
     public void presentBoard() throws IOException;
 
     // presents win message
-    public void winMessage();
+    public void winMessage() throws IOException;
 
     // presents lose message
-    public void loseMessage();
+    public void loseMessage() throws IOException;
 
     // sends request to presenter
     public String playerRequest();
