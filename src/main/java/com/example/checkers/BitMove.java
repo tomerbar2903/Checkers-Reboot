@@ -17,6 +17,11 @@ public class BitMove {
         this.destination = dest;
     }
 
+    public BitMove(BitMove bitMove) {
+        this.source = bitMove.source;
+        this.destination = bitMove.destination;
+    }
+
     public long getSource() {
         return source;
     }

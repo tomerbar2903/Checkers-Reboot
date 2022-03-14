@@ -301,6 +301,9 @@ public class View extends Application implements IView {
                     if (meFirst.isWantsToStart()) {
                         setMeAsFirstTurn();
                     }
+                    else {
+                        presenter.generateMoveAI(0);
+                    }
                     stage.show();
                 }
                 else {

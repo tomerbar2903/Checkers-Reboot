@@ -37,7 +37,7 @@ public class Model implements IModel {
         // return a tree of all possible eating moves from src.
         // get possible landing destinations after an eating move
         long possibleEatingDestinations = BitboardEssentials.getCorners(src, BitboardEssentials.CHECK_EAT_DIAMETER);
-        possibleEatingDestinations = BitboardEssentials.validateForPlayer(src, possibleEatingDestinations, player.isDark(), VisualBoard.getDimension());
+        possibleEatingDestinations = BitboardEssentials.validateForPlayer(src, possibleEatingDestinations, player.isDark(), false);
 
         int sonIndex = 0;
         long positionInBitboard;
@@ -433,7 +433,7 @@ public class Model implements IModel {
             cur.setAdjacentToRival(cur.getAdjacentToRival() | dest);
 
             // update adjacent rival pieces as adjacent
-            long coAdjacentPieces = BitboardEssentials.validateForPlayer(dest, rivalPiecesAdjacent, player.isDark(), VisualBoard.getDimension());
+            long coAdjacentPieces = BitboardEssentials.validateForPlayer(dest, rivalPiecesAdjacent, player.isDark(), isQueen);
             rival.setAdjacentToRival(rival.getAdjacentToRival() | coAdjacentPieces);
         }
         if (rivalQueenAdjacent != 0) {

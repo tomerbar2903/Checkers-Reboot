@@ -338,9 +338,7 @@ public abstract class BitboardEssentials {
     public static long getAdjacentMask(long pos, boolean dark, boolean isQueen, boolean reversed) {
         // returns a mask of the adjacent pieces to pos
         long finalMask = getCorners(pos, ADJACENT_DIAMETER);
-        if (!isQueen) {
-            finalMask = (reversed) ? validateForPlayer(pos, finalMask, !dark, VisualBoard.getDimension()) : validateForPlayer(pos, finalMask, dark, VisualBoard.getDimension());
-        }
+        finalMask = (reversed) ? validateForPlayer(pos, finalMask, !dark, isQueen) : validateForPlayer(pos, finalMask, dark, isQueen);
         return finalMask;
     }
 
@@ -360,7 +358,7 @@ public abstract class BitboardEssentials {
         return topLeft | topRight | bottomLeft | bottomRight;
     }
 
-    public static long validateForPlayer(long pos, long mask, boolean dark, int dimension) {
+    public static long validateForPlayer(long pos, long mask, boolean dark, boolean isQueen) {
         // returns a mask that deletes all bits that don't make sense for current player
         /*
         MASK                      DARK                          LIGHT
@@ -372,11 +370,15 @@ public abstract class BitboardEssentials {
          */
 
         // basically, the function deletes all bigger / smaller bits off of mask (depending on dark)
-        long deletionMask = -1;
-        int indexPos = (int) log2(pos);  // the bit where pos is represented
-        deletionMask = deletionMask << indexPos;
-        deletionMask = (dark) ? ~deletionMask : deletionMask;
-        return mask & deletionMask;
+        long finalMask = mask;
+        if (!isQueen) {
+            long deletionMask = -1;
+            int indexPos = (int) log2(pos);  // the bit where pos is represented
+            deletionMask = deletionMask << indexPos;
+            deletionMask = (dark) ? ~deletionMask : deletionMask;
+            finalMask = mask & deletionMask;
+        }
+        return finalMask;
     }
 
     public static long getPossibleEatingDestinations(long pos, boolean dark, boolean isQueen, boolean reversed) {
@@ -409,9 +411,7 @@ public abstract class BitboardEssentials {
         finalMask = getBlankMask(pos, 5);  // max side of square is 5
 
         // generate appropriate mask for regular piece
-        if (!isQueen) {
-            finalMask = (reversed) ? validateForPlayer(pos, finalMask, !dark, VisualBoard.getDimension()) : validateForPlayer(pos, finalMask, dark, VisualBoard.getDimension());
-        }
+        finalMask = (reversed) ? validateForPlayer(pos, finalMask, !dark, isQueen) : validateForPlayer(pos, finalMask, dark, isQueen);
         return finalMask;
     }
 

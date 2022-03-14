@@ -63,7 +63,7 @@ public class Tile extends Rectangle{
                                     Tile.hideOptions();
                                     Tile.suggestionMode = false;
                                     Piece.setSuggestionMode(false);
-                                    presenter.sendMoveToCheck(src, dest, regularMoveCheck, eatingMoveCheck);
+                                    presenter.sendMoveToCheck(src, dest, regularMoveCheck, eatingMoveCheck, false);
                                     srcPiece.undoExpand();
                                 }
                                 else {
@@ -74,7 +74,7 @@ public class Tile extends Rectangle{
                         else {
                             if (regularMoveCheck || eatingMoveCheck) {
                                 srcPiece.undoExpand();
-                                presenter.sendMoveToCheck(src, dest, regularMoveCheck, eatingMoveCheck);
+                                presenter.sendMoveToCheck(src, dest, regularMoveCheck, eatingMoveCheck, false);
                                 history.emptyHistory();
                             }
                             else {

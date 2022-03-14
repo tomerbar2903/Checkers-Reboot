@@ -3,7 +3,7 @@ package com.example.checkers;
 public interface IPresenter {
 
     // sends move from view to model
-    public void sendMoveToCheck(Position src, Position dest, boolean trueRegular, boolean trueEating);
+    public void sendMoveToCheck(Position src, Position dest, boolean trueRegular, boolean trueEating, boolean isAiMove);
 
     // sends move from model to view (sends new queen position, 0 if no new queen)
     public void sendMove(Position src, Position dest, long queenPos);
@@ -25,5 +25,7 @@ public interface IPresenter {
     public boolean validEatingMove(VisualPlayer player, Position src, Position dest);
 
     public void setMeAsFirstTurn();
+
+    public void generateMoveAI(long mustEat);
 }
 

@@ -31,7 +31,7 @@ public class OpeningController implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         this.dark = true;
-        this.firstTurn.setSelected(false);
+        this.firstTurn.setSelected(true);
     }
 
     @FXML

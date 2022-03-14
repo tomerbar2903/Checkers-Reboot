@@ -10,6 +10,10 @@ public class BoardMove extends BitMove {
         super(Position.positionToLogicalNumber(source), Position.positionToLogicalNumber(dest));
     }
 
+    public BoardMove(BitMove bitMove) {
+        super(bitMove);
+    }
+
     public Position getPositionSource() {
         return Position.logicalNumberToPosition(this.source);
     }

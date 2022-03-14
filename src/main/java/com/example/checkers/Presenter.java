@@ -30,7 +30,7 @@ public class Presenter implements IPresenter{
     }
 
     @Override
-    public void sendMoveToCheck(Position src, Position dest, boolean trueRegular, boolean trueEating) {
+    public void sendMoveToCheck(Position src, Position dest, boolean trueRegular, boolean trueEating, boolean isAiMove) {
 
         long srcLogic = Position.positionToLogicalNumber(src);
         long destLogic = Position.positionToLogicalNumber(dest);
@@ -45,7 +45,7 @@ public class Presenter implements IPresenter{
                 checkQueen = this.model.checkQueen(this.model.getCurrentTurn(), destLogic);
             }
             this.model.removeAdjacentFromSource(srcLogic);
-            this.model.addAdjacentInDestination(this.model.getCurrentTurn(), destLogic, isQueen);
+            this.model.addAdjacentInDestination(this.model.getCurrentTurn(), destLogic, checkQueen != 0);
             this.model.updateBoards(this.model.getCurrentTurn(), srcLogic, destLogic);
             this.sendMove(src, dest, checkQueen);
             this.model.switchTurns();
@@ -85,11 +85,36 @@ public class Presenter implements IPresenter{
         {
             this.gameView.loseMessage();
         }
-        this.handleMustEat();
+        if (!isAiMove) {
+            this.generateMoveAI(this.model.generateMustEatTilesAndPieces());
+        }
+        else {
+            this.handleMustEat();
+        }
     }
 
-    public void generateMoveAI() {
-
+    @Override
+    public void generateMoveAI(long mustEat) {
+        // generate AI move, and sends it to sendMoveToCheck
+        BitMove ai = GamerAI.generateMove(this.model.getCurrentTurn(), this.model.getRival(), mustEat);
+        BoardMove aiMove = null;
+        if (ai != null) {
+            aiMove = new BoardMove(ai);
+            System.out.println(aiMove);
+        }
+        if (aiMove != null) {
+            // TODO - check if valid move, update adjacency boards
+            boolean validRegular = this.model.validMove(this.model.getCurrentTurn(), aiMove.getSource(), aiMove.getDestination());
+            boolean validEating = this.model.validEatingMove(this.model.getCurrentTurn(), aiMove.getSource(), aiMove.getDestination(), Model.checkIfQueen(this.model.getCurrentTurn(), ai.getSource()));
+            this.sendMoveToCheck(aiMove.getPositionSource(), aiMove.getPositionDestination(), validRegular, validEating, true);
+        }
+        else {
+            System.out.println("no possible moves");
+            this.gameView.switchTurns();
+            this.model.switchTurns();
+            long destTiles = this.model.generateMustEatTilesAndPieces();
+            this.generateMoveAI(destTiles);
+        }
     }
 
     public void handleMustEat() {
