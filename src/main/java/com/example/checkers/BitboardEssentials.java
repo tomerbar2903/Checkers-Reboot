@@ -33,6 +33,17 @@ public abstract class BitboardEssentials {
 
     public static final long SPECIAL_POSITION = 4611686018427387904l;
 
+    public static final long BOARD_EDGES = 6160925939535446442l;
+
+    public static final long DARK_DEFENDERS = 6172746239264686080l;
+    public static final long LIGHT_DEFENDERS = 21930;
+
+    public static final long DARK_ATTACKERS = LIGHT_INIT;
+    public static final long LIGHT_ATTACKERS = DARK_INIT;
+
+    public static final long LIGHT_BOTTOM_ROW = 170;
+    public static final long DARK_BOTTOM_ROW = 6124895493223874560l;
+
     // POSITION CALCULATORS
     public static long getMaxLeft(long position, int maxSideMove) {
         // returns the position where is maxSideMove left to position, or the max left if maxSideMove is too long

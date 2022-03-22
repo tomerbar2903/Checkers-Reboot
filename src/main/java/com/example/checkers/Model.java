@@ -7,8 +7,6 @@ public class Model implements IModel {
     private LogicalPlayer currentTurn;
     private boolean turnAI;
 
-    public enum AdjacencyType {TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, NOT_ADJACENT}
-
     public Model() {
         this.player1 = new LogicalPlayer();
         this.player2 = new LogicalPlayer();
@@ -196,6 +194,65 @@ public class Model implements IModel {
         long opPosition = ~position;
         long maskPiece = player.getPieceBoard() & opPosition;
         long maskQueen = player.getQueenBoard() & opPosition;
+
+        boolean checkQueen = Model.checkIfQueen(player, position);
+
+        /* UPDATING SAFE PIECE / QUEEN */
+        {
+            long checkEdge = BitboardEssentials.BOARD_EDGES & position;
+            if (checkEdge != 0) {
+                if ((checkQueen)) {
+                    player.setSafeQueens(player.getSafePieces() - 1);
+                } else {
+                    player.setSafePieces(player.getSafePieces() - 1);
+                }
+            }
+        }
+
+        /* UPDATING PIECE / QUEEN AMOUNT */
+        {
+            boolean isQueen = Model.checkIfQueen(player, position);
+            if (isQueen) {
+                player.setQueenAmount(player.getQueenAmount() - 1);
+            } else {
+                player.setPieceAmount(player.getPieceAmount() - 1);
+            }
+        }
+
+        /* UPDATING DEFENDER PIECES / QUEENS */
+        {
+            long checkDefender = (player.isDark()) ? (BitboardEssentials.DARK_DEFENDERS & position) : (BitboardEssentials.LIGHT_DEFENDERS & position);
+            if (checkDefender != 0) {
+                if (!checkQueen) {
+                    player.setDefenderPieces(player.getDefenderPieces() - 1);
+                }
+                else {
+                    player.setDefenderQueens(player.getDefenderQueens() - 1);
+                }
+            }
+        }
+
+        /* UPDATING ATTACKING PIECES / QUEENS */
+        {
+            long checkAttacking = (player.isDark()) ? (BitboardEssentials.DARK_ATTACKERS & position) : (BitboardEssentials.LIGHT_ATTACKERS & position);
+            if (checkAttacking != 0) {
+                if (!checkQueen) {
+                    player.setAttackingPieces(player.getAttackingPieces() - 1);
+                }
+                else {
+                    player.setAttackingQueens(player.getAttackingQueens() - 1);
+                }
+            }
+        }
+
+        /* UPDATE BOTTOM ROW OCCUPIED */
+        {
+            long occupiedBottom = (player.isDark()) ? (BitboardEssentials.DARK_BOTTOM_ROW & position) : (BitboardEssentials.LIGHT_BOTTOM_ROW & position);
+            if (occupiedBottom != 0) {
+                player.setOccupiedBottomRow(player.getOccupiedBottomRow() - 1);
+            }
+        }
+
         player.setPieceBoard(maskPiece);
         player.setQueenBoard(maskQueen);
     }
@@ -206,6 +263,52 @@ public class Model implements IModel {
             player.setQueenBoard(player.getQueenBoard() | position);  // adds the queen in the queen board
         } else {
             player.setPieceBoard(player.getPieceBoard() | position);  // adds the piece in the piece board
+        }
+
+        /* UPDATE SAFE PIECE / QUEEN */
+        {
+            long checkEdge = BitboardEssentials.BOARD_EDGES & position;
+            if (checkEdge != 0) {
+                if (queen) {
+                    player.setSafeQueens(player.getSafeQueens() + 1);
+                } else {
+                    player.setSafePieces(player.getSafePieces() + 1);
+                }
+            }
+        }
+
+        /* UPDATING DEFENDER PIECE / QUEEN */
+        {
+            long checkDefender = (player.isDark()) ? (BitboardEssentials.DARK_DEFENDERS & position) : (BitboardEssentials.LIGHT_DEFENDERS & position);
+            if (checkDefender != 0) {
+                if (queen) {
+                    player.setDefenderQueens(player.getDefenderQueens() + 1);
+                }
+                else {
+                    player.setAttackingPieces(player.getAttackingPieces() + 1);
+                }
+            }
+        }
+
+        /* UPDATING ATTACKING PIECE / QUEEN */
+        {
+            long checkAttack = (player.isDark()) ? (BitboardEssentials.DARK_ATTACKERS & position) : (BitboardEssentials.LIGHT_ATTACKERS & position);
+            if (checkAttack != 0) {
+                if (queen) {
+                    player.setAttackingQueens(player.getAttackingQueens() + 1);
+                }
+                else {
+                    player.setAttackingPieces(player.getAttackingPieces() + 1);
+                }
+            }
+        }
+
+        /* UPDATE BOTTOM ROW OCCUPIED */
+        {
+            long occupiedBottom = (player.isDark()) ? (BitboardEssentials.DARK_BOTTOM_ROW & position) : (BitboardEssentials.LIGHT_BOTTOM_ROW & position);
+            if (occupiedBottom != 0) {
+                player.setOccupiedBottomRow(player.getOccupiedBottomRow() + 1);
+            }
         }
     }
 
@@ -221,23 +324,10 @@ public class Model implements IModel {
 
     public void updateBoards(LogicalPlayer player, long src, long dest) {
         // moves and updates boards according to move
-        boolean queen = ((player.getQueenBoard() & src) != 0);  // is it a queen?
+        boolean queen = Model.checkIfQueen(player, src);  // is it a queen?
 
-        // moves bits (changes board according to move)
-        if (queen)  // move piece in queen board
-        {
-            /* updates destination piece */
-            long check1 = player.getQueenBoard() | dest;  // this OR dest
-            /* deletes source piece */
-            long oppositeSrc = ~src;  // NOT src
-            player.setQueenBoard(check1 & oppositeSrc);  // final AND NOT src
-        } else {  // move piece in piece board
-            /* updates destination piece */
-            long check1 = player.getPieceBoard() | dest;  // this OR dest
-            /* deletes source piece */
-            long oppositeSrc = ~src;  // NOT src
-            player.setPieceBoard(check1 & oppositeSrc);  // final AND NOT src
-        }
+        this.removePiece(player, src);
+        this.placePiece(player, dest, queen);
     }
 
     @Override
@@ -265,6 +355,10 @@ public class Model implements IModel {
         long removePieceMask = ~position;
         player.setQueenBoard(player.getQueenBoard() | position);
         player.setPieceBoard(player.getPieceBoard() & removePieceMask);
+
+        player.setSafeQueens(player.getSafeQueens() + 1);
+        player.setQueenAmount(player.getQueenAmount() + 1);
+        player.setPieceAmount(player.getPieceAmount() - 1);
     }
 
     public LogicalPlayer getCurrentTurn() {
@@ -349,15 +443,6 @@ public class Model implements IModel {
             p2 >>= 1;
         }
         System.out.print("\n\n");
-    }
-
-    public AdjacencyType getAdjacencyType(long pos1, long pos2) {
-        // returns the adjacency type between pos1 (src) pos2 (relative)
-        AdjacencyType adjacencyType = (pos1 << (VisualBoard.getDimension() + 1) == pos2) ? AdjacencyType.TOP_LEFT : AdjacencyType.NOT_ADJACENT;
-        adjacencyType = (pos1 << (VisualBoard.getDimension() - 1) == pos2) ? AdjacencyType.TOP_RIGHT : adjacencyType;
-        adjacencyType = (pos1 >> (VisualBoard.getDimension() - 1) == pos2) ? AdjacencyType.BOTTOM_LEFT : adjacencyType;
-        adjacencyType = (pos1 >> (VisualBoard.getDimension() + 1) == pos2) ? AdjacencyType.BOTTOM_RIGHT : adjacencyType;
-        return adjacencyType;
     }
 
     public long validateAdjacency(long src, LogicalPlayer player, long adjacentMask) {
@@ -519,6 +604,10 @@ public class Model implements IModel {
             curAdjacentToRival -= positionInBitboardCur;
         }
         return finalTileMask;
+    }
+
+    public float evaluate() {
+        return 1;
     }
 }
 

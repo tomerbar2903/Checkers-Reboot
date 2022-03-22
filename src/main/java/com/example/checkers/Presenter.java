@@ -55,7 +55,9 @@ public class Presenter implements IPresenter{
         else if (trueEating)  // eating move
         {
             this.model.removePieceFromAdjacency(this.model.getCurrentTurn(), srcLogic);
+
             this.model.removePieceFromAdjacency(this.model.getRival(), Position.findMiddle(srcLogic, destLogic));  // removes eaten piece from adjacency board
+
             GeneralTree<Long> chain = this.model.chain(this.model.getCurrentTurn(), destLogic, srcLogic);
             if (chain != null)
             {
@@ -77,21 +79,24 @@ public class Presenter implements IPresenter{
         }
 
         // checks for win
-        int winCheck = this.model.checkWin();
-        if (winCheck == 1)
-        {
-            this.gameView.winMessage();
-        }
-        if (winCheck == -1)
-        {
-            this.gameView.loseMessage();
-        }
         if (!isAiMove) {
             this.generateMoveAI(this.model.generateMustEatTilesAndPieces());
         }
-        else {
+        else{
             this.handleMustEat();
         }
+        int winCheck = this.model.checkWin();
+        if (winCheck == 1 && !isAiMove)
+        {
+            this.gameView.winMessage();
+        }
+        if (winCheck == -1) {
+            this.gameView.loseMessage();
+        }
+        String name = (this.model.getCurrentTurn().isDark()) ? "Dark" : "Light";
+        System.out.print(name + "\n\t>>> SAFE PIECES: " + this.model.getCurrentTurn().getSafePieces() + "\n\t>>> SAFE QUEENS: " + this.model.getCurrentTurn().getSafePieces() + "\n");
+        System.out.print("\t>>> DEFENDER PIECES: " + this.model.getCurrentTurn().getDefenderPieces() + "\n\t>>> DEFENDER QUEENS: " + this.model.getCurrentTurn().getDefenderQueens() + "\n");
+        System.out.print("\t>>> ATTACKER PIECES: " + this.model.getCurrentTurn().getAttackingPieces() + "\n\t>>> ATTACKER QUEENS: " + this.model.getCurrentTurn().getAttackingQueens() + "\n");
     }
 
     @Override
@@ -147,6 +152,7 @@ public class Presenter implements IPresenter{
                 madeQueenCheck = this.model.checkQueen(this.model.getCurrentTurn(), destLogic);
         }
         this.model.updateBoards(this.model.getCurrentTurn(), srcLogic, destLogic);
+
         this.gameView.removePiece(eaten);
         // send eating move to view
         this.sendMove(src, dest, madeQueenCheck);
