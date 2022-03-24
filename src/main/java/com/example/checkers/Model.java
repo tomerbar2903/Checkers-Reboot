@@ -197,12 +197,17 @@ public class Model implements IModel {
 
         boolean checkQueen = Model.checkIfQueen(player, position);
 
+        /* UPDATE ADJACENCY BOARD */
+        {
+            this.removePieceFromAdjacency(player, position);
+        }
+
         /* UPDATING SAFE PIECE / QUEEN */
         {
             long checkEdge = BitboardEssentials.BOARD_EDGES & position;
             if (checkEdge != 0) {
                 if ((checkQueen)) {
-                    player.setSafeQueens(player.getSafePieces() - 1);
+                    player.setSafeQueens(player.getSafeQueens() - 1);
                 } else {
                     player.setSafePieces(player.getSafePieces() - 1);
                 }
@@ -265,6 +270,21 @@ public class Model implements IModel {
             player.setPieceBoard(player.getPieceBoard() | position);  // adds the piece in the piece board
         }
 
+        /* UPDATE ADJACENCY BOARD */
+        {
+            this.addAdjacentInDestination(player, position, queen);
+        }
+
+        /* UPDATE PIECE / QUEEN AMOUNT */
+        {
+            if (queen) {
+                player.setQueenAmount(player.getQueenAmount() + 1);
+            }
+            else {
+                player.setPieceAmount(player.getPieceAmount() + 1);
+            }
+        }
+
         /* UPDATE SAFE PIECE / QUEEN */
         {
             long checkEdge = BitboardEssentials.BOARD_EDGES & position;
@@ -285,7 +305,7 @@ public class Model implements IModel {
                     player.setDefenderQueens(player.getDefenderQueens() + 1);
                 }
                 else {
-                    player.setAttackingPieces(player.getAttackingPieces() + 1);
+                    player.setDefenderPieces(player.getDefenderPieces() + 1);
                 }
             }
         }
@@ -324,10 +344,15 @@ public class Model implements IModel {
 
     public void updateBoards(LogicalPlayer player, long src, long dest) {
         // moves and updates boards according to move
-        boolean queen = Model.checkIfQueen(player, src);  // is it a queen?
+        boolean isQueen = Model.checkIfQueen(player, src);
+        boolean madeQueen = (((dest & BitboardEssentials.DARK_QUEEN) != 0) && !isQueen);
+
 
         this.removePiece(player, src);
-        this.placePiece(player, dest, queen);
+        this.placePiece(player, dest, isQueen);
+        if (madeQueen) {
+            this.moveFromPieceToQueen(player, dest);
+        }
     }
 
     @Override
@@ -356,7 +381,6 @@ public class Model implements IModel {
         player.setQueenBoard(player.getQueenBoard() | position);
         player.setPieceBoard(player.getPieceBoard() & removePieceMask);
 
-        player.setSafeQueens(player.getSafeQueens() + 1);
         player.setQueenAmount(player.getQueenAmount() + 1);
         player.setPieceAmount(player.getPieceAmount() - 1);
     }
@@ -548,7 +572,7 @@ public class Model implements IModel {
         return blankAdjacent;
     }
 
-    public long generateMustEatTilesAndPieces() {
+    public long generateMustEatTilesAndPieces(LogicalPlayer cur, LogicalPlayer riv) {
         // updates mustEat board for the current turn player. returns a mask of all tiles that can be chosen
         /*
         ALGORITHM:
@@ -570,8 +594,6 @@ public class Model implements IModel {
         long positionInBitboardCur, positionInBitboardRival, positionInBitboardBlank;
         long rivalAdjacentPieces;
         long blanks;
-        LogicalPlayer cur = this.currentTurn;
-        LogicalPlayer riv = this.getRival();
         cur.setMustEatPieces(0);
 
         // each potential eat move - source
@@ -588,7 +610,7 @@ public class Model implements IModel {
                 blanks = BitboardEssentials.getAdjacentMask(positionInBitboardRival, riv.isDark(), Model.checkIfQueen(cur, positionInBitboardCur), true) & this.getBlankTilesBoard();
 
                 // each adjacent blank tile
-                for (int j = 0; j < 4 && blanks > 0; i++) {
+                for (int j = 0; j < 4 && blanks > 0; j++) {
                     indexBlank = (int) BitboardEssentials.log2(blanks);
                     positionInBitboardBlank = 1L << indexBlank;
                     long possibleSources = BitboardEssentials.getCorners(positionInBitboardBlank, BitboardEssentials.CHECK_EAT_DIAMETER);
@@ -606,8 +628,149 @@ public class Model implements IModel {
         return finalTileMask;
     }
 
-    public float evaluate() {
-        return 1;
+    public float evaluate(LogicalPlayer player) {
+
+        long totalBoard = player.getTotalBoard();
+
+        LogicalPlayer rival = this.getRival(player);
+
+        boolean oreoPresent = (player.isDark()) ? ((BitboardEssentials.DARK_OREO_PATTERN & totalBoard) != 0) : (((BitboardEssentials.LIGHT_OREO_PATTERN & totalBoard) != 0));
+        boolean triangleOreoPresent = (player.isDark()) ? ((BitboardEssentials.DARK_TRIANGLE_PATTERN & totalBoard) != 0) : (((BitboardEssentials.LIGHT_TRIANGLE_PATTERN & totalBoard) != 0));
+
+        float score = 2 * (player.getQueenAmount() - rival.getQueenAmount());
+        score += player.getPieceAmount() - rival.getPieceAmount();
+        score += 3 * (player.getAttackingQueens() - rival.getAttackingQueens());
+        score += player.getPieceAmount() - rival.getPieceAmount();
+        score += player.getSafePieces();
+        score += 1.3 * player.getSafeQueens();
+        score += 1.2 * player.getDefenderPieces();
+        score += 1.4 * player.getDefenderQueens();
+        score *= GamerAICalculations.bottomRowOccupiedEvaluate(player.getOccupiedBottomRow());
+
+        if (oreoPresent || triangleOreoPresent) {
+            score += 4;
+        }
+
+        return score;
+    }
+
+    public static ArrayList<BitMove> findMustEat(LogicalPlayer player, long destinations) {
+
+        ArrayList<BitMove> eatingMoves = new ArrayList<>();
+
+        long pieces = player.getMustEatPieces();
+
+        boolean isQueen;
+
+        int index;
+        long pos;
+
+        while (pieces > 0) {
+            index = (int) BitboardEssentials.log2(pieces);
+            pos = 1L << index;
+            long possibleDest = BitboardEssentials.getCorners(pos, BitboardEssentials.CHECK_EAT_DIAMETER);
+            isQueen = Model.checkIfQueen(player, pos);
+            possibleDest = BitboardEssentials.validateForPlayer(pos, possibleDest, player.isDark(), isQueen);
+            long dests = possibleDest & destinations;
+            if (dests != 0) {
+                int firstMoveIndex = (int) BitboardEssentials.log2(dests);
+                long dest = 1L << firstMoveIndex;
+                BitMove move = new BitMove(pos, dest);
+                eatingMoves.add(move);
+            }
+
+            pieces -= pos;
+        }
+        return eatingMoves;
+    }
+
+
+    public BitMove generateMove(LogicalPlayer player, LogicalPlayer rival, long mustEat) {
+
+        BitMove move = null;
+        long totalBoard = player.getTotalBoard();
+        long empty = ~ (player.getTotalBoard() | rival.getTotalBoard());
+
+        ArrayList<BitMove> mustEatMove = Model.findMustEat(player, mustEat);
+        if (mustEatMove.size() != 0) {
+            move = mustEatMove.get(0);
+        }
+
+        else {
+
+            int index;
+            long pos;
+            long adj;
+
+            while (totalBoard > 0) {
+                index = (int) BitboardEssentials.log2(totalBoard);
+                pos = 1L << index;
+                adj = BitboardEssentials.getAdjacentMask(pos, player.isDark(), Model.checkIfQueen(player, pos), false);
+                long e = adj & empty;
+                if (e != 0) {
+                    move = new BitMove();
+                    move.setSource(pos);
+                    int destIndex = (int) BitboardEssentials.log2(e);
+                    long dest = 1L << destIndex;
+                    move.setDestination(dest);
+                    break;
+                }
+                totalBoard -= pos;
+            }
+        }
+        return move;
+    }
+
+    public BoardState generateAIMove(LogicalPlayer player, LogicalPlayer rival, int depth, BitMove bitMove, long mustEat) {
+
+        BoardState move = null;
+        if (depth == 0) {  // TODO - or end of game (lose / win)
+            int ai = (player.isDark()) ? -1 : 1;
+            return new BoardState(player.getPieceBoard(), player.getQueenBoard(), ai * this.evaluate(player));
+        }
+
+        long totalBoard = player.getTotalBoard();
+        long empty = ~ (player.getTotalBoard() | rival.getTotalBoard());
+
+        ArrayList<BitMove> mustEatMove = Model.findMustEat(player, mustEat);
+        if (mustEatMove.size() != 0) {
+            for (int i = 0 ; i < mustEatMove.size() ; i++) {
+                long src = mustEatMove.get(i).getSource();
+                long dest = mustEatMove.get(i).getDestination();
+                long eaten = Position.findMiddle(src, dest);
+                boolean queenEaten = Model.checkIfQueen(rival, eaten);
+                this.removePiece(rival, eaten);
+                this.removePiece(player, src);
+                boolean madeQueen = (player.isDark()) ? ((BitboardEssentials.DARK_QUEEN & dest) != 0) : ((BitboardEssentials.LIGHT_QUEEN & dest) != 0);
+                this.placePiece(player, mustEatMove.get(i).getDestination(), madeQueen);
+                long mustEatForPlayer = this.generateMustEatTilesAndPieces(rival, player);
+                // BoardState currentState = this.generateAIMove(rival, player, depth - 1, mustEatMove.get(i), )
+            }
+        }
+
+        else {
+
+            int index;
+            long pos;
+            long adj;
+
+           /* while (totalBoard > 0) {
+                index = (int) BitboardEssentials.log2(totalBoard);
+                pos = 1L << index;
+                adj = BitboardEssentials.getAdjacentMask(pos, player.isDark(), Model.checkIfQueen(player, pos), false);
+                long e = adj & empty;
+                if (e != 0) {
+                    move = new BitMove();
+                    move.setSource(pos);
+                    int destIndex = (int) BitboardEssentials.log2(e);
+                    long dest = 1L << destIndex;
+                    move.setDestination(dest);
+                    break;
+                }
+                totalBoard -= pos;
+            }*/
+        }
+        return move;
     }
 }
 

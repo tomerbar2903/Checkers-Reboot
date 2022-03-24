@@ -2,8 +2,6 @@ package com.example.checkers;
 
 import javafx.geometry.Pos;
 
-import java.util.ArrayList;
-
 public class Position {
 
     private static final int BASE = 2;

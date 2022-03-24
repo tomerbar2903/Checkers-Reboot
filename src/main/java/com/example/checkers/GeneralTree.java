@@ -1,7 +1,6 @@
 package com.example.checkers;
 
 import com.example.checkers.Position;
-import java.util.ArrayList;
 
 public class GeneralTree<E> {
 

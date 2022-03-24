@@ -1,6 +1,5 @@
 package com.example.checkers;
 
-import java.util.ArrayList;
 
 public class VisualPlayer {
 

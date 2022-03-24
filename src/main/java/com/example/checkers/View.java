@@ -13,7 +13,6 @@ import javafx.stage.WindowEvent;
 import javafx.util.Duration;
 
 import java.io.IOException;
-import java.util.ArrayList;
 
 public class View extends Application implements IView {
 
@@ -271,12 +270,12 @@ public class View extends Application implements IView {
         // sets all pieces to marked
         Tile.setSuggestionMode(true);
         Piece.setSuggestionMode(true);  // no piece can be clicked, but the marked ones
-        for (Position p: pieces) {
-            Piece piece = searchPiece(p);
+        for (int i = 0 ; i < pieces.size() ; i++) {
+            Piece piece = searchPiece(pieces.get(i));
             piece.markAsMustEat();
         }
-        for (Position p: tiles) {
-            this.board.getGameBoard()[p.getX()][p.getY()].showAsOption(TileState.OPTION);
+        for (int i = 0 ; i < tiles.size() ; i++) {
+            this.board.getGameBoard()[tiles.get(i).getX()][tiles.get(i).getY()].showAsOption(TileState.OPTION);
         }
     }
 

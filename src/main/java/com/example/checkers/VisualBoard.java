@@ -6,8 +6,6 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.StrokeLineJoin;
 import javafx.scene.shape.StrokeType;
-
-import java.util.ArrayList;
 import java.util.Iterator;
 
 public class VisualBoard extends GridPane{

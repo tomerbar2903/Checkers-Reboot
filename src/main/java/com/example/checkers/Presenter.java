@@ -3,7 +3,6 @@ package com.example.checkers;
 import javafx.geometry.Pos;
 
 import java.io.IOException;
-import java.util.ArrayList;
 
 public class Presenter implements IPresenter{
 
@@ -45,8 +44,6 @@ public class Presenter implements IPresenter{
             if (!isQueen) {
                 checkQueen = this.model.checkQueen(this.model.getCurrentTurn(), destLogic);
             }
-            this.model.removeAdjacentFromSource(srcLogic);
-            this.model.addAdjacentInDestination(this.model.getCurrentTurn(), destLogic, checkQueen != 0);
             this.model.updateBoards(this.model.getCurrentTurn(), srcLogic, destLogic);
             this.sendMove(src, dest, checkQueen);
             this.model.switchTurns();
@@ -54,9 +51,6 @@ public class Presenter implements IPresenter{
         }
         else if (trueEating)  // eating move
         {
-            this.model.removePieceFromAdjacency(this.model.getCurrentTurn(), srcLogic);
-
-            this.model.removePieceFromAdjacency(this.model.getRival(), Position.findMiddle(srcLogic, destLogic));  // removes eaten piece from adjacency board
 
             GeneralTree<Long> chain = this.model.chain(this.model.getCurrentTurn(), destLogic, srcLogic);
             if (chain != null)
@@ -68,7 +62,6 @@ public class Presenter implements IPresenter{
             else
             {
                 this.eat(srcLogic, destLogic, false);
-                this.model.addAdjacentInDestination(this.model.getCurrentTurn(), destLogic, isQueen);
             }
             this.model.switchTurns();
             this.gameView.switchTurns();
@@ -80,7 +73,7 @@ public class Presenter implements IPresenter{
 
         // checks for win
         if (!isAiMove) {
-            this.generateMoveAI(this.model.generateMustEatTilesAndPieces());
+            this.generateMoveAI(this.model.generateMustEatTilesAndPieces(this.model.getCurrentTurn(), this.model.getRival()));
         }
         else{
             this.handleMustEat();
@@ -93,16 +86,13 @@ public class Presenter implements IPresenter{
         if (winCheck == -1) {
             this.gameView.loseMessage();
         }
-        String name = (this.model.getCurrentTurn().isDark()) ? "Dark" : "Light";
-        System.out.print(name + "\n\t>>> SAFE PIECES: " + this.model.getCurrentTurn().getSafePieces() + "\n\t>>> SAFE QUEENS: " + this.model.getCurrentTurn().getSafePieces() + "\n");
-        System.out.print("\t>>> DEFENDER PIECES: " + this.model.getCurrentTurn().getDefenderPieces() + "\n\t>>> DEFENDER QUEENS: " + this.model.getCurrentTurn().getDefenderQueens() + "\n");
-        System.out.print("\t>>> ATTACKER PIECES: " + this.model.getCurrentTurn().getAttackingPieces() + "\n\t>>> ATTACKER QUEENS: " + this.model.getCurrentTurn().getAttackingQueens() + "\n");
+        this.model.printAdjacentBoard();
     }
 
     @Override
     public void generateMoveAI(long mustEat) throws IOException {
         // generate AI move, and sends it to sendMoveToCheck
-        BitMove ai = GamerAI.generateMove(this.model.getCurrentTurn(), this.model.getRival(), mustEat);
+        BitMove ai = this.model.generateMove(this.model.getCurrentTurn(), this.model.getRival(), mustEat);
         BoardMove aiMove = null;
         if (ai != null) {
             aiMove = new BoardMove(ai);
@@ -118,14 +108,14 @@ public class Presenter implements IPresenter{
             System.out.println("no possible moves");
             this.gameView.switchTurns();
             this.model.switchTurns();
-            long destTiles = this.model.generateMustEatTilesAndPieces();
+            long destTiles = this.model.generateMustEatTilesAndPieces(this.model.getCurrentTurn(), this.model.getRival());
             this.generateMoveAI(destTiles);
         }
     }
 
     public void handleMustEat() {
         // runs in a loop until there are no "must eat" moves
-        long mustEat = this.model.generateMustEatTilesAndPieces();
+        long mustEat = this.model.generateMustEatTilesAndPieces(this.model.getCurrentTurn(), this.model.getRival());
         if (mustEat != 0) {
             ArrayList<Position> pieces = Position.extractPositions(this.model.getCurrentTurn().getMustEatPieces());
             ArrayList<Position> tiles = Position.extractPositions(mustEat);

@@ -3,7 +3,6 @@ package com.example.checkers;
 import javafx.animation.Transition;
 
 import java.io.IOException;
-import java.util.ArrayList;
 
 public interface IView{
     // moves player from src to dest (makes queen if queen position != null)
