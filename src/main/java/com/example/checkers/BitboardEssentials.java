@@ -12,6 +12,8 @@ public abstract class BitboardEssentials {
     // DARK QUEEN MASKS
     public static final long DARK_QUEEN = 0xaa;
 
+    public static final long MOVABLE_DARK_INIT = 93458488360960L;
+    public static final long MOVABLE_LIGHT_INIT = 11141120L;
 
     // LIGHT QUEEN MASKS
     public static final long LIGHT_QUEEN = 0x5500000000000000L;

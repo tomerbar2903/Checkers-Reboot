@@ -53,11 +53,14 @@ public class Presenter implements IPresenter{
         {
 
             GeneralTree<Long> chain = this.model.chain(this.model.getCurrentTurn(), destLogic, srcLogic);
-            if (chain != null)
+            if (chain != null && !isAiMove)
             {
                 this.eat(srcLogic, destLogic, true);
                 GeneralTree.printAsPositions(chain);
                 this.dealWithChain(chain);
+            }
+            else if (chain != null & isAiMove) {
+                // TODO - accept a list and go through it
             }
             else
             {
@@ -71,13 +74,14 @@ public class Presenter implements IPresenter{
             this.gameView.showInvalidMove(dest);
         }
 
-        // checks for win
         if (!isAiMove) {
-            this.generateMoveAI(this.model.generateMustEatTilesAndPieces(this.model.getCurrentTurn(), this.model.getRival()));
+            this.generateMoveAI();
+
         }
         else{
             this.handleMustEat();
         }
+        // checks for win
         int winCheck = this.model.checkWin();
         if (winCheck == 1 && !isAiMove)
         {
@@ -90,9 +94,9 @@ public class Presenter implements IPresenter{
     }
 
     @Override
-    public void generateMoveAI(long mustEat) throws IOException {
+    public void generateMoveAI() throws IOException {
         // generate AI move, and sends it to sendMoveToCheck
-        BitMove ai = this.model.generateMove(this.model.getCurrentTurn(), this.model.getRival(), mustEat);
+        BitMove ai = this.model.generateAIMove(this.model.getCurrentTurn());
         BoardMove aiMove = null;
         if (ai != null) {
             aiMove = new BoardMove(ai);
@@ -108,8 +112,8 @@ public class Presenter implements IPresenter{
             System.out.println("no possible moves");
             this.gameView.switchTurns();
             this.model.switchTurns();
-            long destTiles = this.model.generateMustEatTilesAndPieces(this.model.getCurrentTurn(), this.model.getRival());
-            this.generateMoveAI(destTiles);
+            // long destTiles = this.model.generateMustEatTilesAndPieces(this.model.getCurrentTurn(), this.model.getRival());
+            this.generateMoveAI();
         }
     }
 

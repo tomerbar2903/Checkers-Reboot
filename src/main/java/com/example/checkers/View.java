@@ -316,7 +316,7 @@ public class View extends Application implements IView {
                     }
                     else {
                         try {
-                            presenter.generateMoveAI(0);
+                            presenter.generateMoveAI();
                         } catch (IOException e) {
                             e.printStackTrace();
                         }

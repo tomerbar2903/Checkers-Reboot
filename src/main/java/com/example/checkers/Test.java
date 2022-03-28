@@ -3,25 +3,35 @@ package com.example.checkers;
 public class Test {
 
     public static void main(String[] args) {
-        ArrayList<Integer> arrayList = new ArrayList();
+        DoubleLinkedList<Integer> list = new DoubleLinkedList<>();
         Integer i = 7;
         Integer i1 = 6;
         Integer i2 = 67;
         Integer i3 = 45;
         Integer i4 = 2;
         Integer i5 = 12;
-        System.out.println(arrayList);
-        arrayList.add(i);
-        System.out.println(arrayList.size());
-        arrayList.add(i1);
-        arrayList.add(i2);
-        arrayList.add(i3);
-        arrayList.add(i4);
-        arrayList.add(i5);
-        System.out.println(arrayList.size());
-        arrayList.remove((Integer) 45);
-        System.out.println(arrayList.size());
-        System.out.println(arrayList);
+        list.push(i);
+        list.insert(i2);
+        list.push(i1);
+        System.out.println(list.remove());
+        list.push(i3);
+        list.insert(i4);
+        System.out.println(list.pop());
+        list.push(i5);
+        list.print();
+        System.out.println(list.getSize());
+
+        QueueStack<Integer> queueStack = new QueueStack<>();
+        queueStack.push(i);
+        queueStack.insert(i2);
+        queueStack.push(i1);
+        System.out.println(queueStack.remove());
+        queueStack.push(i3);
+        queueStack.insert(i4);
+        System.out.println(queueStack.pop());
+        queueStack.push(i5);
+        queueStack.print();
+        System.out.println(queueStack.getSize());
     }
 
 }

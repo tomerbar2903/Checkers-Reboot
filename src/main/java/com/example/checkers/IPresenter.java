@@ -28,6 +28,6 @@ public interface IPresenter {
 
     public void setMeAsFirstTurn();
 
-    public void generateMoveAI(long mustEat) throws IOException;
+    public void generateMoveAI() throws IOException;
 }
 
