@@ -1,11 +1,14 @@
 package com.example.checkers;
 
+import java.util.HashMap;
+
 public class Model implements IModel {
 
     private LogicalPlayer player1;
     private LogicalPlayer player2;
     private LogicalPlayer currentTurn;
     private boolean turnAI;
+    private HashMap<Long, EntryTranspositionTable> transpositionTableHashMap;
 
     public static final int DEFAULT_SEARCH_DEPTH = 6;
 
@@ -15,6 +18,8 @@ public class Model implements IModel {
         this.currentTurn = this.player2;
         this.printBoard();
         this.turnAI = true;
+        TranspositionTable.initiate();
+        this.transpositionTableHashMap = new HashMap<>();
     }
 
     public void setCurrentTurn(LogicalPlayer currentTurn) {
@@ -1123,6 +1128,33 @@ public class Model implements IModel {
 
     public BoardState generateAIMove(LogicalPlayer player, LogicalPlayer rival, int alpha, int beta, int depth) {
 
+        BoardState minmax = new BoardState(!player.isDark());
+
+        BoardState dark = new BoardState(player.getPieceBoard(), player.getQueenBoard(), 0);
+        BoardState light = new BoardState(rival.getPieceBoard(), rival.getQueenBoard(), 0);
+
+        EntryTranspositionTable entryTranspositionTable;
+
+        EntryTranspositionTable stateScore = this.transpositionTableHashMap.get(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)));
+        if (stateScore != null && stateScore.getDepth() >= depth) {
+            if (stateScore.getFlag() == EntryTranspositionTable.exact) {
+                minmax.setScore(stateScore.getScore());
+                minmax.setPieceBoard(player.getPieceBoard());
+                minmax.setQueenBoard(player.getQueenBoard());
+                return minmax;
+            }
+            if (stateScore.getFlag() == EntryTranspositionTable.lower && stateScore.getScore() > alpha) {
+                alpha = stateScore.getScore();
+            }
+            if (stateScore.getFlag() == EntryTranspositionTable.upper && stateScore.getScore() < beta) {
+                beta = stateScore.getScore();
+            }
+            if (beta >= alpha) {
+                minmax.setScore(stateScore.getScore());
+                return minmax;
+            }
+        }
+
         if (player.getTotalBoard() == 0) {  // lose for current player
             return this.generateAIMove(rival, player, alpha, beta, depth);
         }
@@ -1132,12 +1164,27 @@ public class Model implements IModel {
             return new BoardState(player.getPieceBoard(), player.getQueenBoard(), v);
         }
         if (depth == 0) {
+
             int ai = (player.isDark()) ? -1 : 1;
-            return new BoardState(player.getPieceBoard(), player.getQueenBoard(), ai * this.evaluate(player));
+            minmax = new BoardState(player.getPieceBoard(), player.getQueenBoard(), ai * this.evaluate(player));
+            dark = new BoardState(player.getPieceBoard(), player.getQueenBoard(), minmax.getScore());
+            light = new BoardState(rival.getPieceBoard(), rival.getQueenBoard(), 0);
+            if (minmax.getScore() <= alpha) {
+                entryTranspositionTable = new EntryTranspositionTable(minmax.getScore(), 0, EntryTranspositionTable.lower);
+                this.transpositionTableHashMap.put(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)), entryTranspositionTable);
+            }
+            else if (minmax.getScore() >= beta) {
+                entryTranspositionTable = new EntryTranspositionTable(minmax.getScore(), 0, EntryTranspositionTable.upper);
+                this.transpositionTableHashMap.put(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)), entryTranspositionTable);
+            }
+            else {
+                entryTranspositionTable = new EntryTranspositionTable(minmax.getScore(), 0, EntryTranspositionTable.exact);
+                this.transpositionTableHashMap.put(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)), entryTranspositionTable);
+            }
         }
 
         BoardState temp;
-        BoardState minmax = new BoardState(!player.isDark());
+
 
         long mustEat = this.generateMustEatTilesAndPieces(player, rival);
         long mustEatPieces = player.getMustEatPieces();
@@ -1205,6 +1252,18 @@ public class Model implements IModel {
                             minmax.update(temp);
                             minmax.setPieceBoard(player.getPieceBoard());
                             minmax.setQueenBoard(player.getQueenBoard());
+                            if (minmax.getScore() <= alpha) {
+                                entryTranspositionTable = new EntryTranspositionTable(minmax.getScore(), 0, EntryTranspositionTable.lower);
+                                this.transpositionTableHashMap.put(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)), entryTranspositionTable);
+                            }
+                            else if (minmax.getScore() >= beta) {
+                                entryTranspositionTable = new EntryTranspositionTable(minmax.getScore(), 0, EntryTranspositionTable.upper);
+                                this.transpositionTableHashMap.put(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)), entryTranspositionTable);
+                            }
+                            else {
+                                entryTranspositionTable = new EntryTranspositionTable(minmax.getScore(), 0, EntryTranspositionTable.exact);
+                                this.transpositionTableHashMap.put(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)), entryTranspositionTable);
+                            }
                         }
                         alpha = max(alpha, temp.getScore());
                         if (beta <= alpha) {
@@ -1212,6 +1271,18 @@ public class Model implements IModel {
                                 this.undoPath(player, rival, bestRoute, madeQueen);
                                 minmax.setPieceBoard(player.getPieceBoard());
                                 minmax.setQueenBoard(player.getQueenBoard());
+                                if (minmax.getScore() <= alpha) {
+                                    entryTranspositionTable = new EntryTranspositionTable(minmax.getScore(), 0, EntryTranspositionTable.lower);
+                                    this.transpositionTableHashMap.put(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)), entryTranspositionTable);
+                                }
+                                else if (minmax.getScore() >= beta) {
+                                    entryTranspositionTable = new EntryTranspositionTable(minmax.getScore(), 0, EntryTranspositionTable.upper);
+                                    this.transpositionTableHashMap.put(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)), entryTranspositionTable);
+                                }
+                                else {
+                                    entryTranspositionTable = new EntryTranspositionTable(minmax.getScore(), 0, EntryTranspositionTable.exact);
+                                    this.transpositionTableHashMap.put(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)), entryTranspositionTable);
+                                }
                             }
 //                            minmax.setPieceBoard(player.getPieceBoard());
 //                            minmax.setQueenBoard(player.getQueenBoard());
@@ -1260,6 +1331,18 @@ public class Model implements IModel {
                             minmax.update(temp);
                             minmax.setPieceBoard(player.getPieceBoard());
                             minmax.setQueenBoard(player.getQueenBoard());
+                            if (minmax.getScore() <= alpha) {
+                                entryTranspositionTable = new EntryTranspositionTable(minmax.getScore(), 0, EntryTranspositionTable.lower);
+                                this.transpositionTableHashMap.put(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)), entryTranspositionTable);
+                            }
+                            else if (minmax.getScore() >= beta) {
+                                entryTranspositionTable = new EntryTranspositionTable(minmax.getScore(), 0, EntryTranspositionTable.upper);
+                                this.transpositionTableHashMap.put(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)), entryTranspositionTable);
+                            }
+                            else {
+                                entryTranspositionTable = new EntryTranspositionTable(minmax.getScore(), 0, EntryTranspositionTable.exact);
+                                this.transpositionTableHashMap.put(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)), entryTranspositionTable);
+                            }
                         }
                         beta = min(beta, temp.getScore());
                         if (beta <= alpha) {
@@ -1278,6 +1361,18 @@ public class Model implements IModel {
                             minmax.update(temp);
                             minmax.setPieceBoard(player.getPieceBoard());
                             minmax.setQueenBoard(player.getQueenBoard());
+                            if (minmax.getScore() <= alpha) {
+                                entryTranspositionTable = new EntryTranspositionTable(minmax.getScore(), 0, EntryTranspositionTable.lower);
+                                this.transpositionTableHashMap.put(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)), entryTranspositionTable);
+                            }
+                            else if (minmax.getScore() >= beta) {
+                                entryTranspositionTable = new EntryTranspositionTable(minmax.getScore(), 0, EntryTranspositionTable.upper);
+                                this.transpositionTableHashMap.put(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)), entryTranspositionTable);
+                            }
+                            else {
+                                entryTranspositionTable = new EntryTranspositionTable(minmax.getScore(), 0, EntryTranspositionTable.exact);
+                                this.transpositionTableHashMap.put(TranspositionTable.calcZobristCode(new TotalBoardState(dark, light)), entryTranspositionTable);
+                            }
                         }
                         alpha = max(alpha, temp.getScore());
                         if (beta <= alpha) {
