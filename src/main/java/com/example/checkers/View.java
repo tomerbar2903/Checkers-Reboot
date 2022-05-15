@@ -179,7 +179,7 @@ public class View extends Application implements IView {
         xchange1.setOnFinished(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent actionEvent) {
-                QueenPiece.convertIntoQueen(piece);  // converts visually to a queen
+                piece.convertIntoQueen();  // converts visually to a queen
                 moveBack.play();
             }
         });
@@ -229,12 +229,6 @@ public class View extends Application implements IView {
     }
 
     @Override
-    public void presentBoard() throws IOException {
-        Stage stage = new Stage();
-        this.start(stage);
-    }
-
-    @Override
     public void winMessage() throws IOException {
         // adds winning message on the screen
         Stage stage1 = new Stage();
@@ -258,11 +252,6 @@ public class View extends Application implements IView {
         stage1.setScene(closing);
         closing.setUserData(this.board.getScene().getWindow());
         stage1.show();
-    }
-
-    @Override
-    public String playerRequest() {
-        return null;
     }
 
     @Override

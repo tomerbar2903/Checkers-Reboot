@@ -1,7 +1,5 @@
 package com.example.checkers;
 
-import java.lang.reflect.Array;
-
 public class ArrayList<T>{
 
     private T[] array;

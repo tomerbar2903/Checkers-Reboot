@@ -1,7 +1,5 @@
 package com.example.checkers;
 
-import com.example.checkers.Position;
-
 public class GeneralTree<E> {
 
     // sons array structure
@@ -12,6 +10,7 @@ public class GeneralTree<E> {
 
     private E info;
     private GeneralTree<E>[] sons;
+    private int insertionIndex;
 
     private static final short POSSIBLE_MOVES = 4;
 
@@ -22,6 +21,7 @@ public class GeneralTree<E> {
         {
             this.sons[i] = null;
         }
+        this.insertionIndex = 0;
     }
 
     public GeneralTree(E info)
@@ -32,6 +32,7 @@ public class GeneralTree<E> {
         {
             this.sons[i] = null;
         }
+        this.insertionIndex = 0;
     }
 
     public GeneralTree(E info, GeneralTree[] sons)
@@ -42,6 +43,7 @@ public class GeneralTree<E> {
         {
             this.sons[i] = sons[i];
         }
+        this.insertionIndex = 0;
     }
 
     public E getInfo() {
@@ -96,6 +98,12 @@ public class GeneralTree<E> {
         // puts info inside the array at index
         if (index < POSSIBLE_MOVES)
             this.sons[index] = info;
+    }
+
+    public void put(GeneralTree info) {
+        if (this.insertionIndex < POSSIBLE_MOVES) {
+            this.sons[this.insertionIndex++] = info;
+        }
     }
 
     public GeneralTree get(int index) {

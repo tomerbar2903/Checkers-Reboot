@@ -188,5 +188,16 @@ public class LogicalPlayer {
     public long getTotalBoard() {
         return this.pieceBoard | this.queenBoard;
     }
+
+    public void printDetails(){
+        System.out.println("Piece Amount: " + this.pieceAmount);
+        System.out.println("Queen Amount: " + this.queenAmount);
+        System.out.println("Piece Safe: " + this.safePieces);
+        System.out.println("Safe Queens: " + this.safeQueens);
+        System.out.println("Defender Pieces: " + this.defenderPieces);
+        System.out.println("Defender Queens: " + this.defenderQueens);
+        System.out.println("Attacking Pieces: " + this.attackingPieces);
+        System.out.println("Attacking Queens: " + this.attackingQueens);
+    }
 }
 

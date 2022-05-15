@@ -93,4 +93,8 @@ public class DoubleLinkedList<T>{
         }
         System.out.println(" ---> ||");
     }
+
+    public boolean isEmpty() {
+        return this.head == null;
+    }
 }

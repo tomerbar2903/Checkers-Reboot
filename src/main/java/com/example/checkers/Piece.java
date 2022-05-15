@@ -309,13 +309,13 @@ public class Piece extends Circle {
         return this.dark;
     }
 
-    public static void convertIntoQueen(Piece piece)
+    public void convertIntoQueen()
     {
         // piece.color = (piece.dark) ? DARK_PIECE : LIGHT_PIECE;
-        piece.color = (piece.dark) ? DARK_QUEEN : LIGHT_QUEEN;
-        piece.setFill(piece.color);
-        piece.setEffect(DROP_SHADOW);
-        piece.pieceMode = PieceMode.QUEEN;
+        this.color = (this.dark) ? DARK_QUEEN : LIGHT_QUEEN;
+        this.setFill(this.color);
+        this.setEffect(DROP_SHADOW);
+        this.pieceMode = PieceMode.QUEEN;
     }
 
     private void changeOnClick()

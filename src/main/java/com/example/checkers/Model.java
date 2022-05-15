@@ -1,13 +1,13 @@
 package com.example.checkers;
 
-import javafx.geometry.Pos;
-
 public class Model implements IModel {
 
     private LogicalPlayer player1;
     private LogicalPlayer player2;
     private LogicalPlayer currentTurn;
     private boolean turnAI;
+
+    public static final int DEFAULT_SEARCH_DEPTH = 6;
 
     public Model() {
         this.player1 = new LogicalPlayer();
@@ -65,17 +65,13 @@ public class Model implements IModel {
 
                 // make a new node in the tree, and assign it as a son of root
                 GeneralTree<Long> eatingDest = new GeneralTree<>(positionInBitboard);
-                root.put(eatingDest, sonIndex);
+                root.put(eatingDest);
 
                 // call the function for the son
-                buildChainRegularPiece(root.get(sonIndex), player, positionInBitboard);
+                buildChainRegularPiece(root.get(sonIndex++), player, positionInBitboard);
 
                 // places back pieces on the board
-                this.placePiece(player, src, false);
                 this.placePiece(this.getRival(player), eaten, rivalQueen);
-
-                // increments the index for later inserting operations on SONS array of the tree
-                sonIndex++;
             }
             // remove this current destination from the mask
             possibleEatingDestinations -= positionInBitboard;
@@ -88,9 +84,9 @@ public class Model implements IModel {
         // get possible landing destinations after an eating move
         long possibleEatingDestinations = BitboardEssentials.getCorners(src, BitboardEssentials.CHECK_EAT_DIAMETER);
 
-        int sonIndex = 0;
         long positionInBitboard;
         int index;
+        int sonIndex = 0;
 
         // run until all positions in possibleEatingDestinations are covered
         for (int i = 0; i < 4 && possibleEatingDestinations > 0; i++) {
@@ -114,17 +110,13 @@ public class Model implements IModel {
 
                 // make a new node in the tree, and assign it as a son of root
                 GeneralTree<Long> eatingDest = new GeneralTree<>(positionInBitboard);
-                root.put(eatingDest, sonIndex);
+                root.put(eatingDest);
 
                 // call the function for the son
-                buildChainQueenPiece(root.get(sonIndex), player, positionInBitboard);
+                buildChainQueenPiece(root.get(sonIndex++), player, positionInBitboard);
 
                 // places back pieces on the board
-                this.placePiece(player, src, true);
                 this.placePiece(this.getRival(player), eaten, rivalQueen);
-
-                // increments the index for later inserting operations on SONS array of the tree
-                sonIndex++;
             }
             // remove this current destination from the mask
             possibleEatingDestinations -= positionInBitboard;
@@ -148,10 +140,11 @@ public class Model implements IModel {
             this.removePiece(player, realSrc);
             this.removePiece(this.getRival(player), rivalPosition);
             this.buildChainQueenPiece(possibleChains, player, srcChain);
-            this.placePiece(this.getRival(), rivalPosition, rivalQueenEaten);
+            this.placePiece(this.getRival(player), rivalPosition, rivalQueenEaten);
             this.placePiece(player, realSrc, true);
         } else {
             this.buildChainRegularPiece(possibleChains, player, srcChain);
+            // this.placePiece(player, srcChain, false);
         }
         return possibleChains;
     }
@@ -180,7 +173,7 @@ public class Model implements IModel {
         validMove = ((possibleDestinations & dest) != 0) && emptyPosition(dest);
 
         // looks if there is a rival piece between src and dst
-        boolean checkRivalExistence = this.checkRivalInTheMiddle(src, dest);
+        boolean checkRivalExistence = (getRival(player).getTotalBoard() & Position.findMiddle(src, dest)) != 0;
 
         return checkRivalExistence && validMove;
     }
@@ -336,12 +329,7 @@ public class Model implements IModel {
 
     public boolean emptyPosition(long position) {
         // returns true if no other piece is in this position
-        boolean piece1, piece2, queen1, queen2;
-        piece1 = ((position & this.player1.getPieceBoard()) == 0);
-        piece2 = ((position & this.player2.getPieceBoard()) == 0);
-        queen1 = ((position & this.player1.getQueenBoard()) == 0);
-        queen2 = ((position & this.player2.getQueenBoard()) == 0);
-        return piece1 && piece2 && queen1 && queen2;
+        return (this.getBlankTilesBoard() & position) != 0;
     }
 
     public void updateBoards(LogicalPlayer player, long src, long dest) {
@@ -429,6 +417,37 @@ public class Model implements IModel {
             queen2 = queen2 >> 1;
         }
         System.out.println("\n\n");
+    }
+
+    public String stringBoard() {
+        long board1 = this.player1.getPieceBoard(), board2 = this.player2.getPieceBoard();
+        long queen1 = this.player1.getQueenBoard(), queen2 = this.player2.getQueenBoard();
+        String st = "";
+        // prints board nicely to track moves
+        for (int i = 0; i < VisualBoard.getDimension() * VisualBoard.getDimension(); i++) {
+            // assumes that 2 pieces can't be at the same position
+            if (board1 % 2 != 0) {
+                st += "1\t";
+            } else if (board2 % 2 != 0) {
+                st += "2\t";
+            } else if (queen1 % 2 != 0) {
+                st += "!\t";
+            } else if (queen2 % 2 != 0) {
+                st += "@\t";
+            } else {
+                st += (char) 0xB7 + "\t";
+            }
+            // goes down one row
+            if ((i + 1) % VisualBoard.getDimension() == 0) {
+                st += "\n";
+            }
+            board1 = board1 >> 1;
+            board2 = board2 >> 1;
+            queen1 = queen1 >> 1;
+            queen2 = queen2 >> 1;
+        }
+        st += "\n\n";
+        return st;
     }
 
     public int checkWin() {
@@ -636,22 +655,31 @@ public class Model implements IModel {
 
         LogicalPlayer rival = this.getRival(player);
 
+        int mustBeEaten = this.analyzeMustEat(rival);
+        int futureEat = this.analyzeMustEat(player);
+
         boolean oreoPresent = (player.isDark()) ? ((BitboardEssentials.DARK_OREO_PATTERN & totalBoard) != 0) : (((BitboardEssentials.LIGHT_OREO_PATTERN & totalBoard) != 0));
         boolean triangleOreoPresent = (player.isDark()) ? ((BitboardEssentials.DARK_TRIANGLE_PATTERN & totalBoard) != 0) : (((BitboardEssentials.LIGHT_TRIANGLE_PATTERN & totalBoard) != 0));
 
-        int score = 2 * (player.getQueenAmount() - rival.getQueenAmount());
-        score += player.getPieceAmount() - rival.getPieceAmount();
-        score += 3 * (player.getAttackingQueens() - rival.getAttackingQueens());
-        score += player.getPieceAmount() - rival.getPieceAmount();
-        score += player.getSafePieces();
-        score += 5 * player.getSafeQueens();
-        score += 3 * player.getDefenderPieces();
-        score += 4 * player.getDefenderQueens();
-        score *= GamerAICalculations.bottomRowOccupiedEvaluate(player.getOccupiedBottomRow());
+        int score = 8 * (this.queenAmount(player) - this.queenAmount(rival));
+        score += 7 * (this.pieceAmount(player) - this.pieceAmount(rival));
+        score += 3 * this.center(player) - 2 * this.center(rival);
+        score += this.centerSides(player);
+        score += 10 * (this.attackingQueens(player) - this.attackingQueens(rival));
+        score += 7 * (this.attackingPieces(player) - this.attackingPieces(rival));
+        score += 5 * this.safePieces(player);
+        score += 5 * this.safeQueens(player);
+        score += 5 * (this.defenderPieces(player) - this.defenderPieces(rival));
+        score += 10 * (this.defenderQueens(player) - this.defenderQueens(rival));
+        score += 4 * this.occuipiedButtom(player);
+        score -= this.attackingQueens(rival) * 30;
 
         if (oreoPresent || triangleOreoPresent) {
             score += 4;
         }
+
+        score -= 10 * mustBeEaten;
+        score += 4 * futureEat;
 
         return score;
     }
@@ -687,15 +715,33 @@ public class Model implements IModel {
     }
 
 
-    public BitMove generateMove(LogicalPlayer player, LogicalPlayer rival, long mustEat) {
+    public BitMove generateMove(LogicalPlayer player, LogicalPlayer rival) {
 
         BitMove move = null;
         long totalBoard = player.getTotalBoard();
         long empty = ~ (player.getTotalBoard() | rival.getTotalBoard());
+        long mustEat = this.generateMustEatTilesAndPieces(player, rival);
 
         ArrayList<BitMove> mustEatMove = Model.findMustEat(player, mustEat);
         if (mustEatMove.size() != 0) {
-            move = mustEatMove.get(0);
+            for (int i = 0 ; i < mustEatMove.size() ; i++) {
+                boolean isQueen = Model.checkIfQueen(player, mustEatMove.get(i).getSource());
+                GeneralTree<Long> chain;
+                boolean ateQueen = Model.checkIfQueen(rival, Position.findMiddle(mustEatMove.get(i).getSource(), mustEatMove.get(i).getDestination()));
+                this.makeImaginaryMove(player, mustEatMove.get(i).getSource(), mustEatMove.get(i).getDestination(), true, isQueen);
+                if (!isQueen) {
+                    chain = this.chain(player, mustEatMove.get(i).getDestination(), mustEatMove.get(i).getSource());
+                    if (chain != null) {
+                        QueueStack<TotalBoardState> path = new QueueStack<>();
+                        this.analyzeChain(player, rival, chain, isQueen);
+                        path.print();
+                    }
+                    else {
+                        move = mustEatMove.get(i);
+                    }
+                }
+                this.revertImaginaryMove(player, mustEatMove.get(i).getSource(), mustEatMove.get(i).getDestination(), true, ateQueen, false, true);
+            }
         }
 
         else {
@@ -757,38 +803,50 @@ public class Model implements IModel {
     }
 
     public void convertQueenToPiece(LogicalPlayer player, long pos) {
+        player.setQueenBoard(player.getQueenBoard() & ~pos);
+        player.setPieceBoard(player.getPieceBoard() | pos);
         player.setPieceAmount(player.getPieceAmount() + 1);
         player.setQueenAmount(player.getQueenAmount() - 1);
-
-
     }
 
-    public boolean makeImaginaryMove(LogicalPlayer player, long src, long dest, boolean isEatingMove) {
+    public boolean makeImaginaryMove(LogicalPlayer player, long src, long dest, boolean isEatingMove, boolean isQueen) {
         // makes move (call revertImaginaryMove to cancel it later)
         // returns true if move made a queen for player
         this.removePiece(player, src);
         boolean madeQueen = (player.isDark()) ? ((BitboardEssentials.DARK_QUEEN & dest) != 0) : ((BitboardEssentials.LIGHT_QUEEN & dest) != 0);
-        boolean isQueen = madeQueen || (Model.checkIfQueen(player, src));
-        this.placePiece(player, dest, isQueen);
+        madeQueen = (madeQueen && !isQueen);
+        this.placePiece(player, dest, madeQueen || isQueen);
         if (isEatingMove) {
             LogicalPlayer rival = this.getRival(player);
             this.removePiece(rival, Position.findMiddle(src, dest));
         }
+        {
+            /*if (isQueen) {
+                System.out.println(new BoardMove(Position.logicalNumberToPosition(src), Position.logicalNumberToPosition(dest)));
+                System.out.println("Placed As Queen In Destination: " + (madeQueen || isQueen));
+            }*/
+        }
         return madeQueen;
     }
 
-    public void revertImaginaryMove(LogicalPlayer player, long ogSrc, long ogDest, boolean wasEatingMove, boolean ateQueen, boolean madeQueen) {
+    public void revertImaginaryMove(LogicalPlayer player, long ogSrc, long ogDest, boolean wasEatingMove, boolean ateQueen, boolean madeQueen, boolean wasQueen) {
         // undoes a move
         this.removePiece(player, ogDest);
-        boolean isQueen = Model.checkIfQueen(player, ogDest);
 
         // was a queen prier to the move - places accordingly
-        this.placePiece(player, ogSrc, !madeQueen && isQueen);
+        this.placePiece(player, ogSrc, !madeQueen && wasQueen);
 
         if (wasEatingMove) {
             LogicalPlayer rival = this.getRival(player);
             this.placePiece(rival, Position.findMiddle(ogSrc, ogDest), ateQueen);
         }
+    }
+
+    public void eat(LogicalPlayer player, long src, long dest) {
+        LogicalPlayer rival = this.getRival(player);
+        this.removePiece(rival, Position.findMiddle(src, dest));
+        this.placePiece(player, dest, Model.checkIfQueen(player, src));
+        this.removePiece(player, src);
     }
 
     public static boolean isEatingMove(long src, long dest) {
@@ -804,19 +862,278 @@ public class Model implements IModel {
         return new BitMove(src, dest);
     }
 
-    public BitMove generateAIMove(LogicalPlayer cur) {
-        BoardState move = this.generateAIMove(cur, this.getRival(cur), 2);
+    public LinearLinkedList<BitMove> getBestChain(LogicalPlayer player, QueueStack<TotalBoardState> bestChain, boolean isQueen) {
+        // returns best chain possible - if known that chain is existent
+        LinearLinkedList<BitMove> positionsBestChain = new LinearLinkedList<>();
+        TotalBoardState endState = bestChain.remove();
+        int size = bestChain.getSize();
+        bestChain.push(endState);
+        for (int i = 0 ; i < size ; i++) {
+            TotalBoardState startState = bestChain.remove();
+            BitMove move;
+            move = Model.calculateMove(startState.getLightState().getTotalBoard(), endState.getLightState().getTotalBoard());
+            positionsBestChain.push(move);
+
+            endState = startState;
+
+            bestChain.push(endState);
+        }
+        return positionsBestChain;
+    }
+
+    public GeneralTree<TotalBoardState> analyzeChain(LogicalPlayer player, LogicalPlayer rival, GeneralTree<Long> chain, boolean isQueen) {
+        // takes an eating chain - generates a general tree with scores (like mini-max)
+        int aiMul = (player.isDark()) ? -1 : 1;  // to multiply evaluate return value
+
+        if (chain.isLeaf()) {
+            boolean checkQueenMade = (player.isDark()) ? ((BitboardEssentials.DARK_QUEEN & chain.getInfo()) != 0) : ((BitboardEssentials.LIGHT_QUEEN & chain.getInfo()) != 0);
+            if (checkQueenMade) {
+                this.moveFromPieceToQueen(player, chain.getInfo());
+            }
+            // to evaluate including the queen-making, then revert
+            int score = this.evaluate(player) * aiMul;
+            if (checkQueenMade) {
+                this.convertQueenToPiece(player, chain.getInfo());
+            }
+
+            TotalBoardState t = new TotalBoardState(true);
+            t.getDarkState().setPieceBoard(rival.getPieceBoard());
+            t.getDarkState().setQueenBoard(rival.getQueenBoard());
+            t.getLightState().setPieceBoard(player.getPieceBoard());
+            t.getLightState().setQueenBoard(player.getQueenBoard());
+            t.getLightState().setScore(score);
+            GeneralTree<TotalBoardState> node = new GeneralTree<>(t);
+            return node;
+        }
+
+        int minimax = (player.isDark()) ? BoardState.MAX_INT : BoardState.MIN_INT;
+
+        TotalBoardState current = new TotalBoardState(!player.isDark());
+        current.getDarkState().setPieceBoard(rival.getPieceBoard());
+        current.getDarkState().setQueenBoard(rival.getQueenBoard());
+        current.getLightState().setPieceBoard(player.getPieceBoard());
+        current.getLightState().setQueenBoard(player.getQueenBoard());
+        GeneralTree<TotalBoardState> myState = new GeneralTree<>(current);
+
+        for (int i = 0 ; i < 4 ; i++) {
+            GeneralTree<Long> destSon = chain.get(i);
+            if (destSon != null) {
+                long src = chain.getInfo();
+                long dest = destSon.getInfo();
+                boolean queenEaten = Model.checkIfQueen(rival, Position.findMiddle(src, dest));
+                this.makeImaginaryMove(player, src, dest, true, isQueen);
+                GeneralTree<TotalBoardState> maxOfSons = this.analyzeChain(player, rival, destSon, isQueen);
+                myState.put(maxOfSons);
+                if (!player.isDark()) {
+                    if (minimax < maxOfSons.getInfo().getLightState().getScore()) {
+                        minimax = maxOfSons.getInfo().getLightState().getScore();
+                    }
+                }
+                else {
+                    if (minimax > maxOfSons.getInfo().getDarkState().getScore()) {
+                        minimax = maxOfSons.getInfo().getDarkState().getScore();
+                    }
+                }
+                this.revertImaginaryMove(player, src, dest, true, queenEaten, false, isQueen);
+            }
+        }
+        if (!player.isDark()) {
+            myState.getInfo().getLightState().setScore(minimax);
+        }
+        else {
+            myState.getInfo().getDarkState().setScore(minimax);
+        }
+        return myState;
+    }
+
+    public static GeneralTree<TotalBoardState> findSon(GeneralTree<TotalBoardState> root, LogicalPlayer player, int score) {
+        // returns the first son that matches the score
+        GeneralTree<TotalBoardState> son = null;
+        for (int i = 0 ; i < 4 ; i++) {
+            if (root.get(i) != null) {
+                if (player.isDark()) {
+                    if (((TotalBoardState) root.get(i).getInfo()).getDarkState().getScore() == score) {
+                        son = root.get(i);
+                    }
+                }
+                else {
+                    if (((TotalBoardState) root.get(i).getInfo()).getLightState().getScore() == score) {
+                        son = root.get(i);
+                    }
+                }
+            }
+        }
+        return son;
+    }
+
+    public QueueStack<TotalBoardState> bestChain(GeneralTree<TotalBoardState> analyzeTree, LogicalPlayer player) {
+        // returns the best path in an eating chain
+
+        QueueStack<TotalBoardState> bestPath = new QueueStack<>();
+        while (analyzeTree != null) {
+            bestPath.insert(analyzeTree.getInfo());
+            if (player.isDark()) {
+                analyzeTree = Model.findSon(analyzeTree, player, analyzeTree.getInfo().getDarkState().getScore());
+            }
+            else {
+                analyzeTree = Model.findSon(analyzeTree, player, analyzeTree.getInfo().getLightState().getScore());
+            }
+        }
+        return bestPath;
+    }
+
+    public LinearLinkedList<BitMove> generateAIMove(LogicalPlayer cur) {
+
+        LogicalPlayer rival = this.getRival(cur);
+
+        long curPieces = cur.getPieceBoard();
+        long curQueens = cur.getQueenBoard();
+        long curAdj = cur.getAdjacentToRival();
+        long curMust = cur.getMustEatPieces();
+
+        long rivPieces = rival.getPieceBoard();;
+        long rivQueens = rival.getQueenBoard();
+        long rivAdj = rival.getAdjacentToRival();
+        long rivMust = rival.getMustEatPieces();
+
+        BoardState move = this.generateAIMove(cur, this.getRival(cur), BoardState.MIN_INT, BoardState.MAX_INT, Model.DEFAULT_SEARCH_DEPTH);
+
+        cur.setPieceBoard(curPieces);
+        cur.setQueenBoard(curQueens);
+        cur.setAdjacentToRival(curAdj);
+        cur.setMustEatPieces(curMust);
+        rival.setPieceBoard(rivPieces);
+        rival.setQueenBoard(rivQueens);
+        rival.setAdjacentToRival(rivAdj);
+        rival.setMustEatPieces(rivMust);
+
         long totalBoardDest = move.getPieceBoard() | move.getQueenBoard();
         long totalBoardSrc = cur.getTotalBoard();
         BitMove aiMove = Model.calculateMove(totalBoardSrc, totalBoardDest);
-        return aiMove;
+
+        LinearLinkedList<BitMove> moves = new LinearLinkedList<>();
+
+        boolean isQueen = Model.checkIfQueen(cur, aiMove.getSource());
+        // check for chain in first move of AI
+        if (this.validEatingMove(cur, aiMove.getSource(), aiMove.getDestination(), Model.checkIfQueen(cur, aiMove.getSource()))) {
+            GeneralTree<Long> chain = this.chain(cur, aiMove.getDestination(), aiMove.getSource());
+            boolean ateQueen = Model.checkIfQueen(this.getRival(cur), Position.findMiddle(aiMove.getSource(), aiMove.getDestination()));
+            if (chain != null) {
+                this.makeImaginaryMove(cur, aiMove.getSource(), aiMove.getDestination(), true, isQueen);
+                GeneralTree<TotalBoardState> chainScores = this.analyzeChain(cur, this.getRival(cur), chain, Model.checkIfQueen(cur, aiMove.getSource()));
+                QueueStack<TotalBoardState> bestPath = this.bestChain(chainScores, cur);
+                LinearLinkedList<BitMove> chainMoves = this.getBestChain(cur, bestPath, Model.checkIfQueen(cur, aiMove.getSource()));
+                moves = chainMoves;
+                moves.push(aiMove);
+                boolean madeQueen = (cur.isDark()) ? ((BitboardEssentials.LIGHT_QUEEN & Model.getLastDestinationFromPath(bestPath)) != 0) : ((BitboardEssentials.DARK_QUEEN & Model.getLastDestinationFromPath(bestPath)) != 0);
+                // this.revertImaginaryMove(cur, aiMove.getSource(), aiMove.getDestination(), true, ateQueen, madeQueen, isQueen);
+                cur.setPieceBoard(curPieces);
+                cur.setQueenBoard(curQueens);
+                cur.setAdjacentToRival(curAdj);
+                cur.setMustEatPieces(curMust);
+                rival.setPieceBoard(rivPieces);
+                rival.setQueenBoard(rivQueens);
+                rival.setAdjacentToRival(rivAdj);
+                rival.setMustEatPieces(rivMust);
+            } else {
+                moves.push(aiMove);
+            }
+        }
+        else if (this.validMove(cur, aiMove.getSource(), aiMove.getDestination())){
+            moves.push(aiMove);
+        }
+        return moves;
     }
 
-    public BoardState generateAIMove(LogicalPlayer player, LogicalPlayer rival, int depth) {
+    public void dealWithPath(LogicalPlayer player, LogicalPlayer rival, QueueStack<TotalBoardState> path) {
+        // goes through path and changes boards accordingly
+        TotalBoardState initial = path.pop();
+        int size = path.getSize();
+        path.insert(initial);
+        for (int i = 0 ; i < size ; i++) {
+            TotalBoardState move = path.pop();
+            BitMove eatMove = Model.calculateMove(initial.getLightState().getTotalBoard(), move.getLightState().getTotalBoard());
+            long src = eatMove.getSource();
+            long dest = eatMove.getDestination();
+            boolean isQueen = Model.checkIfQueen(player, src);
+            long eaten = Position.findMiddle(src, dest);
+            this.removePiece(rival, eaten);
+            this.removePiece(player, src);
+            this.placePiece(player, dest, isQueen);
 
-        if (depth == 0) {  // TODO - or win / lose
-            int ai = (player.isDark()) ? 1 : -1;
-            return new BoardState(player.getPieceBoard(), player.getQueenBoard(), ai * evaluate(player));
+            // so that the function doesn't delete the path
+            path.insert(move);
+
+            initial = move;
+        }
+    }
+
+    public static long getLastDestinationFromPath(QueueStack<TotalBoardState> path) {
+        TotalBoardState finalState = path.remove();
+        TotalBoardState prierState = path.remove();
+        path.insert(prierState);
+        path.insert(finalState);
+        BitMove move = Model.calculateMove(prierState.getLightState().getTotalBoard(), finalState.getLightState().getTotalBoard());
+        return move.getDestination();
+    }
+
+    public void undoPath(LogicalPlayer player, LogicalPlayer rival, QueueStack<TotalBoardState> path, boolean madeQueen) {
+        // undoes the path of eating chain
+        if (madeQueen) {
+            long queenPos = Model.getLastDestinationFromPath(path);
+            this.convertQueenToPiece(player, queenPos);
+        }
+        TotalBoardState finalState = path.remove();
+        int size = path.getSize();
+        path.push(finalState);
+        for (int i = 0 ; i < size ; i++) {
+            TotalBoardState reverseMove = path.remove();
+            BitMove eatMove = Model.calculateMove(reverseMove.getLightState().getTotalBoard(), finalState.getLightState().getTotalBoard());
+            long ogSrc = eatMove.getSource();
+            long ogDest = eatMove.getDestination();
+            boolean isQueen = Model.checkIfQueen(player, ogDest);
+            boolean queenEaten;
+            long eaten = Position.findMiddle(ogSrc, ogDest);
+            if (!player.isDark()) {
+                queenEaten = (reverseMove.getDarkState().getQueenBoard() & eaten) != 0;
+            }
+            else {
+                queenEaten = (reverseMove.getLightState().getQueenBoard() & eaten) != 0;
+            }
+
+            this.removePiece(player, ogDest);
+            this.placePiece(rival, eaten, queenEaten);
+            this.placePiece(player, ogSrc, isQueen);
+
+            path.push(reverseMove);
+
+            finalState = reverseMove;
+        }
+    }
+
+    public static int max(int number1, int number2) {
+        // returns maximum out of number1 and number2
+        return (number1 > number2) ? number1 : number2;
+    }
+
+    public static int min(int number1, int number2) {
+        // returns minimum out of number1 and number2
+        return (number1 > number2) ? number2 : number1;
+    }
+
+    public BoardState generateAIMove(LogicalPlayer player, LogicalPlayer rival, int alpha, int beta, int depth) {
+
+        if (player.getTotalBoard() == 0) {  // lose for current player
+            return this.generateAIMove(rival, player, alpha, beta, depth);
+        }
+        if (rival.getTotalBoard() == 0) {  // win for current player
+            int ai = (player.isDark()) ? -1 : 1;
+            int v = ai * this.evaluate(player) * (Model.DEFAULT_SEARCH_DEPTH - depth) * 4;
+            return new BoardState(player.getPieceBoard(), player.getQueenBoard(), v);
+        }
+        if (depth == 0) {
+            int ai = (player.isDark()) ? -1 : 1;
+            return new BoardState(player.getPieceBoard(), player.getQueenBoard(), ai * this.evaluate(player));
         }
 
         BoardState temp;
@@ -824,6 +1141,10 @@ public class Model implements IModel {
 
         long mustEat = this.generateMustEatTilesAndPieces(player, rival);
         long mustEatPieces = player.getMustEatPieces();
+        long pieces = player.getPieceBoard();
+        long queens = player.getQueenBoard();
+        long rivalPieces = rival.getPieceBoard();
+        long rivalQueens = rival.getQueenBoard();
 
         if (mustEat != 0) {  // have to choose between eating moves
             int index;
@@ -838,22 +1159,83 @@ public class Model implements IModel {
                     int i = (int) BitboardEssentials.log2(eatingDestinations);
                     long dest = 1L << i;
                     boolean ateQueen = Model.checkIfQueen(rival, Position.findMiddle(pos, dest));
-                    boolean madeQueen = this.makeImaginaryMove(player, pos, dest, true);
-                    System.out.println("Move Tested: " + Position.logicalNumberToPosition(pos) + " ---> " + Position.logicalNumberToPosition(dest));
-                    this.printAdjacentBoard();
-                    temp = this.generateAIMove(rival, player, depth - 1);
+                    GeneralTree<Long> eatingChain = this.chain(player, dest, pos);
+                    boolean madeQueen;
+                    QueueStack<TotalBoardState> bestRoute = null;
+
+                    madeQueen = this.makeImaginaryMove(player, pos, dest, true, isQueen);
+                    if (eatingChain != null) {
+                        GeneralTree<TotalBoardState> analyzedChain = this.analyzeChain(player, rival, eatingChain, isQueen);
+                        bestRoute = this.bestChain(analyzedChain, player);
+                        long lastPosition = Model.getLastDestinationFromPath(bestRoute);
+                        this.dealWithPath(player, rival, bestRoute);
+                        long queenMakingRow = (player.isDark()) ? (BitboardEssentials.LIGHT_BOTTOM_ROW) : (BitboardEssentials.DARK_BOTTOM_ROW);
+                        long lastMoveQueen = queenMakingRow & player.getPieceBoard();
+                        madeQueen = (lastMoveQueen != 0);
+                        if (madeQueen) {
+                            this.moveFromPieceToQueen(player, lastPosition);
+                        }
+                    }
+                    temp = this.generateAIMove(rival, player, alpha, beta, depth - 1);
                     if (player.isDark()) {  // ---> then, find minimum
                         if (temp.getScore() < minmax.getScore()) {
                             minmax.update(temp);
+                            minmax.setPieceBoard(player.getPieceBoard());
+                            minmax.setQueenBoard(player.getQueenBoard());
+                        }
+                        beta = min(beta, temp.getScore());
+                        if (beta <= alpha) {
+                            if (bestRoute != null) {
+                                this.undoPath(player, rival, bestRoute, madeQueen);
+                                minmax.setPieceBoard(player.getPieceBoard());
+                                minmax.setQueenBoard(player.getQueenBoard());
+                            }
+//                            minmax.setPieceBoard(player.getPieceBoard());
+//                            minmax.setQueenBoard(player.getQueenBoard());
+                            // this.revertImaginaryMove(player, pos, dest, true, ateQueen, madeQueen, isQueen);
+                            player.setPieceBoard(pieces);
+                            player.setQueenBoard(queens);
+                            rival.setPieceBoard(rivalPieces);
+                            rival.setQueenBoard(rivalQueens);
+                            player.setMustEatPieces(mustEatPieces);
+                            break;
                         }
                     } else {  // find maximum
                         if (temp.getScore() > minmax.getScore()) {
                             minmax.update(temp);
+                            minmax.setPieceBoard(player.getPieceBoard());
+                            minmax.setQueenBoard(player.getQueenBoard());
+                        }
+                        alpha = max(alpha, temp.getScore());
+                        if (beta <= alpha) {
+                            if (bestRoute != null) {
+                                this.undoPath(player, rival, bestRoute, madeQueen);
+                                minmax.setPieceBoard(player.getPieceBoard());
+                                minmax.setQueenBoard(player.getQueenBoard());
+                            }
+//                            minmax.setPieceBoard(player.getPieceBoard());
+//                            minmax.setQueenBoard(player.getQueenBoard());
+                            // this.revertImaginaryMove(player, pos, dest, true, ateQueen, madeQueen, isQueen);
+                            player.setPieceBoard(pieces);
+                            player.setQueenBoard(queens);
+                            rival.setPieceBoard(rivalPieces);
+                            rival.setQueenBoard(rivalQueens);
+                            player.setMustEatPieces(mustEatPieces);
+                            break;
                         }
                     }
-                    minmax.setPieceBoard(player.getPieceBoard());
-                    minmax.setQueenBoard(player.getQueenBoard());
-                    this.revertImaginaryMove(player, pos, dest, true, ateQueen, madeQueen);
+                    if (bestRoute != null) {
+                        this.undoPath(player, rival, bestRoute, madeQueen);
+                        minmax.setPieceBoard(player.getPieceBoard());
+                        minmax.setQueenBoard(player.getQueenBoard());
+                    }
+//                    minmax.setPieceBoard(player.getPieceBoard());
+//                    minmax.setQueenBoard(player.getQueenBoard());
+                    // this.revertImaginaryMove(player, pos, dest, true, ateQueen, madeQueen, isQueen);
+                    player.setPieceBoard(pieces);
+                    player.setQueenBoard(queens);
+                    rival.setPieceBoard(rivalPieces);
+                    rival.setQueenBoard(rivalQueens);
                     player.setMustEatPieces(mustEatPieces);
                     eatingDestinations -= dest;
                 }
@@ -871,31 +1253,297 @@ public class Model implements IModel {
                     long dest = 1L << j;
                     boolean eatingMove = Model.isEatingMove(pos, dest);
                     boolean ateQueen = (eatingMove) ? (Model.checkIfQueen(rival, Position.findMiddle(pos, dest))) : false;
-                    boolean madeQueen = this.makeImaginaryMove(player, pos, dest, eatingMove);
-                    System.out.println("Move Tested: " + Position.logicalNumberToPosition(pos) + " ---> " + Position.logicalNumberToPosition(dest));
-                    this.printAdjacentBoard();
-                    temp = this.generateAIMove(rival, player, depth - 1);
+                    boolean madeQueen = this.makeImaginaryMove(player, pos, dest, eatingMove, isQueen);
+                    temp = this.generateAIMove(rival, player, alpha, beta, depth - 1);
                     if (player.isDark()) {  // ---> then, find minimum
                         if (temp.getScore() < minmax.getScore()) {
                             minmax.update(temp);
+                            minmax.setPieceBoard(player.getPieceBoard());
+                            minmax.setQueenBoard(player.getQueenBoard());
+                        }
+                        beta = min(beta, temp.getScore());
+                        if (beta <= alpha) {
+//                            minmax.setPieceBoard(player.getPieceBoard());
+//                            minmax.setQueenBoard(player.getQueenBoard());
+                            // this.revertImaginaryMove(player, pos, dest, eatingMove, ateQueen, madeQueen, isQueen);
+                            player.setPieceBoard(pieces);
+                            player.setQueenBoard(queens);
+                            rival.setPieceBoard(rivalPieces);
+                            rival.setQueenBoard(rivalQueens);
+                            player.setMustEatPieces(mustEatPieces);
+                            break;
                         }
                     } else {  // find maximum
                         if (temp.getScore() > minmax.getScore()) {
                             minmax.update(temp);
+                            minmax.setPieceBoard(player.getPieceBoard());
+                            minmax.setQueenBoard(player.getQueenBoard());
+                        }
+                        alpha = max(alpha, temp.getScore());
+                        if (beta <= alpha) {
+//                            minmax.setPieceBoard(player.getPieceBoard());
+//                            minmax.setQueenBoard(player.getQueenBoard());
+                            // this.revertImaginaryMove(player, pos, dest, eatingMove, ateQueen, madeQueen, isQueen);
+                            player.setPieceBoard(pieces);
+                            player.setQueenBoard(queens);
+                            rival.setPieceBoard(rivalPieces);
+                            rival.setQueenBoard(rivalQueens);
+                            player.setMustEatPieces(mustEatPieces);
+                            break;
                         }
                     }
-                    minmax.setPieceBoard(player.getPieceBoard());
-                    minmax.setQueenBoard(player.getQueenBoard());
-                    this.revertImaginaryMove(player, pos, dest, eatingMove, ateQueen, madeQueen);
+
+                    // this.revertImaginaryMove(player, pos, dest, eatingMove, ateQueen, madeQueen, isQueen);
+                    player.setPieceBoard(pieces);
+                    player.setQueenBoard(queens);
+                    rival.setPieceBoard(rivalPieces);
+                    rival.setQueenBoard(rivalQueens);
                     player.setMustEatPieces(mustEatPieces);
                     possibleMoves -= dest;
                 }
                 allPieces -= pos;
             }
         }
-        System.out.println("********   CHOSEN SUB-MOVE   ********");
-        this.printAdjacentBoard();
         return minmax;
+    }
+
+    public int pieceAmount(LogicalPlayer player) {
+        int counter = 0;
+        long p = player.getPieceBoard();
+        while (p > 0) {
+            if (p % 2 == 1) {
+                counter++;
+            }
+            p >>= 1;
+        }
+        return counter;
+    }
+
+    public int queenAmount(LogicalPlayer player) {
+        int counter = 0;
+        long p = player.getQueenBoard();
+        while (p > 0) {
+            if (p % 2 == 1) {
+                counter++;
+            }
+            p >>= 1;
+        }
+        return counter;
+    }
+
+    public int safePieces(LogicalPlayer player) {
+        int counter = 0;
+        long p = player.getPieceBoard();
+        p &= BitboardEssentials.BOARD_EDGES;
+        while (p > 0) {
+            if (p % 2 == 1) {
+                counter++;
+            }
+            p >>= 1;
+        }
+        return counter;
+    }
+
+    public int safeQueens(LogicalPlayer player) {
+        int counter = 0;
+        long p = player.getQueenBoard();
+        p &= BitboardEssentials.BOARD_EDGES;
+        while (p > 0) {
+            if (p % 2 == 1) {
+                counter++;
+            }
+            p >>= 1;
+        }
+        return counter;
+    }
+
+    public int occuipiedButtom(LogicalPlayer player) {
+        long mask = (player.isDark()) ? (player.getTotalBoard() & BitboardEssentials.DARK_QUEEN) : (player.getTotalBoard() & BitboardEssentials.LIGHT_QUEEN);
+        int counter = 0;
+        while (mask > 0) {
+            if (mask % 2 == 1) {
+                counter++;
+            }
+            mask >>= 1;
+        }
+        return counter;
+    }
+
+    public int defenderPieces(LogicalPlayer player) {
+        long mask = (player.isDark()) ? (player.getPieceBoard() & BitboardEssentials.DARK_DEFENDERS) : (player.getPieceBoard() & BitboardEssentials.LIGHT_DEFENDERS);
+        int counter = 0;
+        while (mask > 0) {
+            if (mask % 2 == 1) {
+                counter++;
+            }
+            mask >>= 1;
+        }
+        return counter;
+    }
+
+    public int defenderQueens(LogicalPlayer player) {
+        long mask = (player.isDark()) ? (player.getQueenBoard() & BitboardEssentials.DARK_DEFENDERS) : (player.getQueenBoard() & BitboardEssentials.LIGHT_DEFENDERS);
+        int counter = 0;
+        while (mask > 0) {
+            if (mask % 2 == 1) {
+                counter++;
+            }
+            mask >>= 1;
+        }
+        return counter;
+    }
+
+    public int attackingPieces(LogicalPlayer player) {
+        long mask = (player.isDark()) ? (player.getPieceBoard() & BitboardEssentials.DARK_ATTACKERS) : (player.getPieceBoard() & BitboardEssentials.LIGHT_ATTACKERS);
+        int counter = 0;
+        while (mask > 0) {
+            if (mask % 2 == 1) {
+                counter++;
+            }
+            mask >>= 1;
+        }
+        return counter;
+    }
+
+    public int attackingQueens(LogicalPlayer player) {
+        long mask = (player.isDark()) ? (player.getQueenBoard() & BitboardEssentials.DARK_ATTACKERS) : (player.getQueenBoard() & BitboardEssentials.LIGHT_ATTACKERS);
+        int counter = 0;
+        while (mask > 0) {
+            if (mask % 2 == 1) {
+                counter++;
+            }
+            mask >>= 1;
+        }
+        return counter;
+    }
+
+    public int center(LogicalPlayer player) {
+        long mask = player.getTotalBoard() & BitboardEssentials.BOARD_CENTER;
+        int counter = 0;
+        while (mask > 0) {
+            if (mask % 2 == 1) {
+                counter++;
+            }
+            mask >>= 1;
+        }
+        return counter;
+    }
+
+    public int centerSides(LogicalPlayer player) {
+        long mask = player.getTotalBoard() & BitboardEssentials.BOARD_CENTER_SIDES;
+        int counter = 0;
+        while (mask > 0) {
+            if (mask % 2 == 1) {
+                counter++;
+            }
+            mask >>= 1;
+        }
+        return counter;
+    }
+
+    public int max(int a, int b, int c, int d) {
+        return Math.max(Math.max(a, b), Math.max(c, d));
+    }
+
+    public int maxSizeChain(GeneralTree<Long> chain) {
+        if (chain == null) {
+            return 0;
+        }
+        return 1 + max(maxSizeChain(chain.get(0)), maxSizeChain(chain.get(1)), maxSizeChain(chain.get(2)), maxSizeChain(chain.get(3)));
+    }
+
+    public boolean canMakeQueenInTheEnd(GeneralTree<Long> chain, LogicalPlayer player) {
+        if (chain == null) {
+            return false;
+        }
+        if (chain.isLeaf()) {
+            return (player.isDark()) ? ((BitboardEssentials.DARK_QUEEN & chain.getInfo()) != 0) : ((BitboardEssentials.LIGHT_QUEEN & chain.getInfo()) != 0);
+        }
+        return canMakeQueenInTheEnd(chain.get(0), player) || canMakeQueenInTheEnd(chain.get(1), player) || canMakeQueenInTheEnd(chain.get(2), player) || canMakeQueenInTheEnd(chain.get(3), player);
+    }
+
+    public int analyzeMustEat(LogicalPlayer player) {
+
+        int finalScore = 0;
+
+        LogicalPlayer rival = this.getRival(player);
+
+        long mustEatOriginal = player.getMustEatPieces();
+
+        long destinations = this.generateMustEatTilesAndPieces(player, rival);
+        long pieces = player.getMustEatPieces();
+        player.setMustEatPieces(mustEatOriginal);
+
+        int pieceIndex;
+        long piecePosition;
+        int destinationIndex;
+        long destinationPosition;
+
+        while (pieces > 0) {
+            pieceIndex = (int) BitboardEssentials.log2(pieces);
+            piecePosition = 1L << pieceIndex;
+            long currentDestinations = destinations & (BitboardEssentials.getCorners(piecePosition, BitboardEssentials.CHECK_EAT_DIAMETER));
+            while (currentDestinations > 0) {
+                destinationIndex = (int) BitboardEssentials.log2(currentDestinations);
+                destinationPosition = 1L << destinationIndex;
+                boolean ateQueen = Model.checkIfQueen(this.getRival(player), Position.findMiddle(piecePosition, destinationPosition));
+                boolean isQueen = Model.checkIfQueen(player, piecePosition);
+                boolean madeQueen = this.makeImaginaryMove(player, piecePosition, destinationPosition, true, Model.checkIfQueen(player, piecePosition));
+                GeneralTree<Long> chain = this.chain(player, destinationPosition, piecePosition);
+                int length = this.maxSizeChain(chain) + 1;
+                finalScore += length * 3;
+                boolean canMakeQueen = this.canMakeQueenInTheEnd(chain, player);
+                finalScore = canMakeQueen ? (finalScore + 10) : finalScore;
+                this.revertImaginaryMove(player, piecePosition, destinationPosition, true, ateQueen, madeQueen, isQueen);
+                currentDestinations -= destinationPosition;
+            }
+            pieces -= piecePosition;
+        }
+        return finalScore;
+    }
+
+    public boolean movable(LogicalPlayer player) {
+
+        if (player.getMustEatPieces() > 0) {
+            return true;
+        }
+
+        LogicalPlayer rival = this.getRival(player);
+
+        long pieces = player.getPieceBoard();
+        long queens = player.getQueenBoard();
+
+        long pos;
+        int index;
+        while (pieces > 0) {
+            index = (int) BitboardEssentials.log2(pieces);
+            pos = 1L << index;
+            long destinations = this.possibleMoves(player, pos, false);
+            while (destinations > 0) {
+                int destIndex = (int) BitboardEssentials.log2(destinations);
+                long dest = 1L << destIndex;
+                if (this.validMove(player, pos, dest)) {
+                    return true;
+                }
+                destinations -= dest;
+            }
+            pieces -= pos;
+        }
+        while (queens > 0) {
+            index = (int) BitboardEssentials.log2(queens);
+            pos = 1L << index;
+            long destinations = this.possibleMoves(player, pos, true);
+            while (destinations > 0) {
+                int destIndex = (int) BitboardEssentials.log2(destinations);
+                long dest = 1L << destIndex;
+                if (this.validMove(player, pos, dest)) {
+                    return true;
+                }
+                destinations -= dest;
+            }
+            pieces -= pos;
+        }
+        return false;
     }
 }
 

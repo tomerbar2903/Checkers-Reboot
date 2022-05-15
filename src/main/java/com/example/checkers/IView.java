@@ -1,7 +1,5 @@
 package com.example.checkers;
 
-import javafx.animation.Transition;
-
 import java.io.IOException;
 
 public interface IView{
@@ -14,17 +12,11 @@ public interface IView{
     // makes a player a queen
     public void makeQueen(Position queenPosition);
 
-    // shows board on screen
-    public void presentBoard() throws IOException;
-
     // presents win message
     public void winMessage() throws IOException;
 
     // presents lose message
     public void loseMessage() throws IOException;
-
-    // sends request to presenter
-    public String playerRequest();
 
     // switch turns
     public void switchTurns();

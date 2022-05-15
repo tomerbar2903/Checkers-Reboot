@@ -15,9 +15,9 @@ public class BoardState {
          this.score = score;
     }
 
-    public BoardState(boolean minmax) {
+    public BoardState(boolean ai) {
         // true - max, false - min
-        this.score = (minmax) ? MIN_INT : MAX_INT;
+        this.score = (ai) ? MIN_INT : MAX_INT;
         this.queenBoard = 0;
         this.pieceBoard = 0;
     }
@@ -56,11 +56,21 @@ public class BoardState {
         this.queenBoard = queenBoard;
     }
 
-    public double getScore() {
+    public int getScore() {
         return score;
     }
 
     public void setScore(int score) {
         this.score = score;
     }
+
+    public long getTotalBoard() {
+        return this.pieceBoard | this.queenBoard;
+    }
+
+    public String toString() {
+        String output = "Piece Board - " + this.pieceBoard + " Queen Board - " + this.queenBoard;
+        return output;
+    }
+
 }

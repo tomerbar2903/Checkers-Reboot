@@ -1,6 +1,7 @@
 package com.example.checkers;
 
 import javafx.geometry.Pos;
+import javafx.scene.shape.Line;
 
 import java.io.IOException;
 
@@ -51,35 +52,26 @@ public class Presenter implements IPresenter{
         }
         else if (trueEating)  // eating move
         {
-
-            GeneralTree<Long> chain = this.model.chain(this.model.getCurrentTurn(), destLogic, srcLogic);
-            if (chain != null && !isAiMove)
-            {
-                this.eat(srcLogic, destLogic, true);
-                GeneralTree.printAsPositions(chain);
-                this.dealWithChain(chain);
+            if (!isAiMove) {
+                GeneralTree<Long> chain = this.model.chain(this.model.getCurrentTurn(), destLogic, srcLogic);
+                if (chain != null) {
+                    this.eat(srcLogic, destLogic, true);
+                    GeneralTree.printAsPositions(chain);
+                    this.dealWithChain(chain);
+                }
+                else {
+                    this.eat(srcLogic, destLogic, false);
+                }
             }
-            else if (chain != null & isAiMove) {
-                // TODO - accept a list and go through it
-            }
-            else
-            {
-                this.eat(srcLogic, destLogic, false);
-            }
+            else {
+                    this.eat(srcLogic, destLogic, false);
+                }
             this.model.switchTurns();
             this.gameView.switchTurns();
         }
         else  // invalid move
         {
             this.gameView.showInvalidMove(dest);
-        }
-
-        if (!isAiMove) {
-            this.generateMoveAI();
-
-        }
-        else{
-            this.handleMustEat();
         }
         // checks for win
         int winCheck = this.model.checkWin();
@@ -90,31 +82,52 @@ public class Presenter implements IPresenter{
         if (winCheck == -1) {
             this.gameView.loseMessage();
         }
+
+        if (!isAiMove) {
+            this.generateMoveAI();
+            while (!this.model.movable(this.model.getRival())) {
+                this.generateMoveAI();
+            }
+        }
+        else{
+            this.handleMustEat();
+            while (!this.model.movable(this.model.getRival())) {
+                this.model.switchTurns();
+                this.gameView.switchTurns();
+            }
+        }
         this.model.printAdjacentBoard();
     }
 
     @Override
     public void generateMoveAI() throws IOException {
         // generate AI move, and sends it to sendMoveToCheck
-        BitMove ai = this.model.generateAIMove(this.model.getCurrentTurn());
-        BoardMove aiMove = null;
-        if (ai != null) {
-            aiMove = new BoardMove(ai);
-            System.out.println(aiMove);
-        }
-        if (aiMove != null) {
-            // TODO - check if valid move, update adjacency boards
-            boolean validRegular = this.model.validMove(this.model.getCurrentTurn(), aiMove.getSource(), aiMove.getDestination());
-            boolean validEating = this.model.validEatingMove(this.model.getCurrentTurn(), aiMove.getSource(), aiMove.getDestination(), Model.checkIfQueen(this.model.getCurrentTurn(), ai.getSource()));
-            this.sendMoveToCheck(aiMove.getPositionSource(), aiMove.getPositionDestination(), validRegular, validEating, true);
+        LinearLinkedList<BitMove> ai = this.model.generateAIMove(this.model.getCurrentTurn());
+        if (ai == null) {
+            System.out.println("no possible moves");
         }
         else {
-            System.out.println("no possible moves");
-            this.gameView.switchTurns();
-            this.model.switchTurns();
-            // long destTiles = this.model.generateMustEatTilesAndPieces(this.model.getCurrentTurn(), this.model.getRival());
-            this.generateMoveAI();
+            BitMove aiMove;
+            if (ai.getHead() != null) {
+                while (ai.getNextNode() != null) {
+                    aiMove = ai.getInfo();
+                    ai.popFirst();
+                    this.eat(aiMove.getSource(), aiMove.getDestination(), true);
+                }
+                // now, treat as a single move
+                aiMove = ai.getInfo();
+                Position source = Position.logicalNumberToPosition(aiMove.getSource());
+                Position dest = Position.logicalNumberToPosition(aiMove.getDestination());
+                boolean validRegularMove = this.model.validMove(this.model.getCurrentTurn(), aiMove.getSource(), aiMove.getDestination());
+                boolean validEatingMove = this.model.validEatingMove(this.model.getCurrentTurn(), aiMove.getSource(), aiMove.getDestination(), Model.checkIfQueen(this.model.getCurrentTurn(), aiMove.getSource()));
+                this.sendMoveToCheck(source, dest, validRegularMove, validEatingMove, true);
+            }
+            else {
+                this.gameView.switchTurns();
+                this.model.switchTurns();
+            }
         }
+
     }
 
     public void handleMustEat() {
@@ -127,7 +140,7 @@ public class Presenter implements IPresenter{
         }
     }
 
-    public void eat(long srcLogic, long destLogic, boolean chain)
+    public void eat(long srcLogic, long destLogic, boolean chainNotFinished)
     {
         // deals with eating
         // calculates wanted eating position
@@ -141,7 +154,7 @@ public class Presenter implements IPresenter{
 
         // check queen after eating
         long madeQueenCheck = 0;
-        if (!chain) {  // if the chain is finished
+        if (!chainNotFinished) {  // if the chain is finished
             if (!Model.checkIfQueen(this.model.getCurrentTurn(), srcLogic))
                 madeQueenCheck = this.model.checkQueen(this.model.getCurrentTurn(), destLogic);
         }
@@ -215,21 +228,6 @@ public class Presenter implements IPresenter{
             this.gameView.move(src, dest, null);  // no new queen
         }
         this.model.printBoard();
-    }
-
-    @Override
-    public void makeQueen(Position piece) {
-        this.gameView.makeQueen(piece);
-    }
-
-    @Override
-    public void winMessage() throws IOException {
-        this.gameView.winMessage();
-    }
-
-    @Override
-    public void loseMessage() throws IOException {
-        this.gameView.loseMessage();
     }
 
     private LogicalPlayer convert(VisualPlayer player) {

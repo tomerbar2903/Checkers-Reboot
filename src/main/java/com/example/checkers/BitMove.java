@@ -1,6 +1,5 @@
 package com.example.checkers;
 
-import java.util.Objects;
 
 public class BitMove {
 
@@ -40,7 +39,7 @@ public class BitMove {
 
     @Override
     public String toString() {
-        return this.source + "  --->  " + this.destination;
+        return " { " +this.source + "  --->  " + this.destination + " }";
     }
 
     @Override

@@ -1,19 +1,11 @@
 package com.example.checkers;
 
-import javafx.geometry.Pos;
-
-import java.util.ArrayList;
 
 public abstract class BitboardEssentials {
 
-    // WHITE TILES MASK
-    public static final long WHITE_TILES = 0xaa55aa55aa55aa55L;
 
     // DARK QUEEN MASKS
     public static final long DARK_QUEEN = 0xaa;
-
-    public static final long MOVABLE_DARK_INIT = 93458488360960L;
-    public static final long MOVABLE_LIGHT_INIT = 11141120L;
 
     // LIGHT QUEEN MASKS
     public static final long LIGHT_QUEEN = 0x5500000000000000L;
@@ -26,10 +18,6 @@ public abstract class BitboardEssentials {
     public static final int VALID_STEP1 = VisualBoard.getDimension() + 1;
     public static final int VALID_STEP2 = VisualBoard.getDimension() - 1;
 
-    // SIMPLE VALID EATING MOVES MASKS
-    public static final int VALID_EATING_STEP1 = 2 * VALID_STEP1;
-    public static final int VALID_EATING_STEP2 = 2 * VALID_STEP2;
-
     public static final int ADJACENT_DIAMETER = 3;
     public static final int CHECK_EAT_DIAMETER = 5;
 
@@ -40,8 +28,8 @@ public abstract class BitboardEssentials {
     public static final long DARK_DEFENDERS = 6172746239264686080L;
     public static final long LIGHT_DEFENDERS = 21930;
 
-    public static final long DARK_ATTACKERS = LIGHT_INIT;
-    public static final long LIGHT_ATTACKERS = DARK_INIT;
+    public static final long DARK_ATTACKERS = 1437226410;
+    public static final long LIGHT_ATTACKERS = 6172840427897487360L;
 
     public static final long LIGHT_BOTTOM_ROW = 170;
     public static final long DARK_BOTTOM_ROW = 6124895493223874560L;
@@ -51,6 +39,10 @@ public abstract class BitboardEssentials {
 
     public static final long DARK_TRIANGLE_PATTERN = 360850920143060992L;
     public static final long LIGHT_TRIANGLE_PATTERN = 16544;
+
+    public static final long BOARD_CENTER = 172134236160L;
+    public static final long BOARD_CENTER_SIDES = 559436267520L;
+
 
     // POSITION CALCULATORS
     public static long getMaxLeft(long position, int maxSideMove) {
@@ -281,78 +273,6 @@ public abstract class BitboardEssentials {
     }
 
     // Calculation Functions
-    public static long getSquare(long positionCenter, int sideLength) {
-        // returns a mask of a square around positionCenter with a side length of sideLength
-        long top, bottom, left, right;
-        int boardSize = VisualBoard.getDimension();
-
-        /*
-        TOP EDGE POSITION
-         */
-        {
-            top = getMaxTop(positionCenter, sideLength);
-        }
-
-        /*
-        BOTTOM EDGE POSITION
-         */
-        {
-            bottom = getMaxBottom(positionCenter, sideLength);
-        }
-
-        /*
-        LEFT EDGE POSITION
-         */
-        {
-            left = getMaxLeft(positionCenter, sideLength);
-        }
-
-        /*
-        RIGHT EDGE POSITION
-         */
-        {
-            right = getMaxRight(positionCenter, sideLength);
-        }
-
-        long topLeft, topRight, bottomLeft, bottomRight;
-
-        /*
-        CALCULATE CORNERS
-         */
-        topLeft = getMaxTopLeft(top, left, boardSize);
-        topRight = getMaxTopRight(top,right, boardSize);
-        bottomLeft = getMaxBottomLeft(bottom, left, boardSize);
-        bottomRight = getMaxBottomRight(bottom, right, boardSize);
-
-        long totalMask;
-        /*
-        GENERATE TOTAL MASK
-        Start at topLeft, shift 1 left until reached to topRight. shift topLeft and topRight to the left boardSize times, until
-        topLeft reached to bottomRight
-
-        There's a chance that bottomRight will be negative at (7, 7). for that, we make bottomRight to be at (6, 7). (7, 7) is not a black tile anyway
-         */
-        {
-            totalMask = 0;
-            long current = topLeft;
-            while (current <= bottomRight) {
-                for (totalMask |= current ; current <= topRight && current < bottomRight ; current <<= 1) {
-                    totalMask |= current;
-                }
-                // if end is reached
-                if (current == bottomRight){
-                    totalMask |= bottomRight;
-                    break;
-                }
-                current = (topLeft <<= boardSize);
-                topRight <<= boardSize;
-                // if topRight reaches bottom right - it might get negative as well
-                topRight = (topRight > 0) ? topRight : (-1) * (topRight >> 1);
-            }
-        }
-
-        return totalMask;
-    }
 
     public static long getAdjacentMask(long pos, boolean dark, boolean isQueen, boolean reversed) {
         // returns a mask of the adjacent pieces to pos
